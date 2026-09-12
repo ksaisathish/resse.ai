@@ -17,7 +17,16 @@ import { BACKEND_ORIGIN } from "@/config";
 import { loadReceptionSnapshot, saveReceptionSnapshot } from "@/reception-store";
 import { loadSettings, type TtsMode } from "@/settings-store";
 
-export function useReceptionAgent() {
+export interface ReceptionAgentOptions {
+  /** Called when a listening window closed without anyone actually speaking.
+   * Distinct from an error — see @resse/stt's onNoSpeech. The hands-free
+   * screen uses it to end a conversation quietly instead of showing a
+   * banner. */
+  onNoSpeech?: () => void;
+}
+
+export function useReceptionAgent(options: ReceptionAgentOptions = {}) {
+  const { onNoSpeech } = options;
   const avatarRef = useRef<TalkingAvatarHandle>(null);
   const lastSpokenMessageId = useRef<string | null>(null);
   const { agent, isReady } = useAgent({ agentId: "default" });
@@ -32,7 +41,7 @@ export function useReceptionAgent() {
   // returns with the still-default `reception` state.
   const hasLoadedReception = useRef(false);
 
-  const { speak } = useTextToSpeech({
+  const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech({
     mode: ttsMode,
     baseUrl: BACKEND_ORIGIN,
     onStart: () => avatarRef.current?.talk(),
@@ -40,6 +49,15 @@ export function useReceptionAgent() {
     onFallback: (fallbackError) =>
       console.warn("Realistic TTS failed, used robotic instead:", fallbackError.message),
   });
+
+  // The avatar's talking clip now loops until it's explicitly told to stop
+  // (see @resse/talking-avatar), so a speech that ends without firing
+  // onDone — interrupted by stopSpeaking(), or an engine error path —
+  // would otherwise leave it mouthing silently forever. isSpeaking going
+  // false is the one signal that covers every one of those endings.
+  useEffect(() => {
+    if (!isSpeaking) avatarRef.current?.idle();
+  }, [isSpeaking]);
 
   // Loads the persisted reception snapshot (business/clients/appointments,
   // already layered with any saved org override — see reception-store.ts)
@@ -111,6 +129,7 @@ export function useReceptionAgent() {
   const { isRecording, isTranscribing, startListening, stopListening } = useSpeechToText({
     baseUrl: BACKEND_ORIGIN,
     onTranscript: (text) => void sendText(text),
+    onNoSpeech,
     onError: (sttError) => setError(sttError.message),
   });
 
@@ -146,6 +165,11 @@ export function useReceptionAgent() {
     isTranscribing,
     startListening,
     stopListening,
+    /** True while TTS is actually playing. The hands-free screen must not
+     * open the mic during this or it records — and then transcribes — the
+     * avatar's own voice. */
+    isSpeaking,
+    stopSpeaking,
     messages,
     conversationMessages,
     activeToolLabel,

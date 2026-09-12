@@ -35,6 +35,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
   const {
     onTranscript,
     onError,
+    onNoSpeech,
     autoStopSilenceMs = 1500,
     autoStopMaxDurationMs = 12000,
     silenceThresholdDb = -35,
@@ -82,18 +83,24 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
     }
     // Anything this short is mic warm-up, not speech. Uploading it either
     // fails at the transport layer (an effectively empty file) or comes back
-    // as an empty transcript — both of which surface as confusing errors far
-    // downstream, so stop here with something readable instead.
+    // as an empty transcript, so stop here — as "nobody spoke", not as an
+    // error, since a hands-free caller opens the mic speculatively and this
+    // is its normal empty outcome.
     if (heldForMs < minDurationMs) {
-      onError?.(
-        new Error(`That recording was too short (${heldForMs}ms) to transcribe — try again.`),
-      );
+      onNoSpeech?.();
       return null;
     }
 
     setIsTranscribing(true);
     try {
       const text = await transcribeAudio(uri, config);
+      // A clip of pure silence/room noise transcribes to "" (or whitespace).
+      // Passing that on as a transcript would send an empty turn to the
+      // agent; it's the same "nobody spoke" outcome as a too-short clip.
+      if (!text.trim()) {
+        onNoSpeech?.();
+        return null;
+      }
       onTranscript?.(text);
       return text;
     } catch (error) {
@@ -103,7 +110,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
       setIsTranscribing(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRecording, recorder, onTranscript, onError, minDurationMs]);
+  }, [isRecording, recorder, onTranscript, onError, onNoSpeech, minDurationMs]);
 
   // Keeps the watchdog interval from being torn down and rebuilt every time
   // stopListening's identity changes.

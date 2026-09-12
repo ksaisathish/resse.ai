@@ -15,7 +15,9 @@ export interface TalkingAvatarHandle {
 export interface TalkingAvatarProps {
   /** Looping resting-state clip. A `require(...)` asset or a remote/local URI. */
   idleSource: VideoSource;
-  /** One-shot talking clip, played once then auto-reverts to idle. */
+  /** Talking clip. Loops for as long as the avatar is in the talking state —
+   * call `idle()` when the speech actually ends (clip length and speech
+   * length never match), which is what crossfades back to the idle loop. */
   talkingSource: VideoSource;
   /** Locks the frame to a fixed width/height ratio. Leave unset to let the
    * container fill whatever size `style` gives it instead (e.g.

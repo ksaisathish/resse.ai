@@ -16,6 +16,13 @@ export interface SpeechToTextConfig {
 export interface UseSpeechToTextOptions extends SpeechToTextConfig {
   onTranscript?: (text: string) => void;
   onError?: (error: Error) => void;
+  /** Fires when a clip was captured but contained no speech — either too
+   * short to be anything but mic warm-up (`minDurationMs`), or transcribed
+   * to an empty string. This is a normal outcome for a hands-free surface
+   * that opens the mic speculatively (nobody happened to say anything), NOT
+   * a failure, so it is deliberately kept off `onError`: a kiosk shouldn't
+   * flash a red error banner every time a listening window closes unused. */
+  onNoSpeech?: () => void;
   /** Auto-stop recording after this many ms of continuous silence (metering
    * below `silenceThresholdDb`). Set to 0 to disable silence-based
    * auto-stop — `stopListening()` then only stops on manual/explicit call.

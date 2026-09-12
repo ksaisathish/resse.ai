@@ -38,26 +38,52 @@ export const TalkingAvatar = forwardRef<TalkingAvatarHandle, TalkingAvatarProps>
       player.play();
     });
 
+    // Loops for as long as the avatar is in the talking state. Speech length
+    // is decided by the TTS engine at runtime and is almost never the same
+    // as this clip's length, so a one-shot clip stops the mouth moving
+    // partway through a long answer. `idle()` (called on TTS end) is what
+    // ends talking, not the clip's own duration.
     const talkingPlayer = useVideoPlayer(talkingSource, (player) => {
-      player.loop = false;
+      player.loop = true;
       player.muted = true;
     });
 
-    // `player.play()` in the setup callback above is the documented pattern,
-    // but for a local `require(...)` asset the player can still be mid-load
-    // at that exact synchronous moment, and silently drop the call instead of
-    // queuing it — the idle loop then never starts until something else
-    // (e.g. the first goIdle() after talking) happens to re-trigger it. This
-    // re-asserts play() once the player actually reports ready, which is the
-    // one point playback is guaranteed to actually take.
+    // `player.play()`/`player.loop` in the setup callbacks above are the
+    // documented pattern, but for a local `require(...)` asset the player can
+    // still be mid-load at that exact synchronous moment and silently drop
+    // them instead of queuing — the idle clip then plays through once and
+    // stops dead, or never starts at all. Re-asserting both once the player
+    // reports ready is the one point they're guaranteed to take.
     useEffect(() => {
       const subscription = idlePlayer.addListener("statusChange", ({ status }) => {
         // Harmless to call even if the talking layer is currently on top —
         // the idle player sits invisibly underneath either way.
-        if (status === "readyToPlay") idlePlayer.play();
+        if (status === "readyToPlay") {
+          idlePlayer.loop = true;
+          idlePlayer.play();
+        }
       });
       return () => subscription.remove();
     }, [idlePlayer]);
+
+    // Belt and braces for the same class of bug: if `loop` still didn't take
+    // (seen when the asset finishes loading between the setup callback and
+    // the first readyToPlay), restart the idle clip by hand rather than
+    // leaving the avatar frozen on its last frame.
+    useEffect(() => {
+      const subscription = idlePlayer.addListener("playToEnd", () => {
+        idlePlayer.currentTime = 0;
+        idlePlayer.play();
+      });
+      return () => subscription.remove();
+    }, [idlePlayer]);
+
+    useEffect(() => {
+      const subscription = talkingPlayer.addListener("statusChange", ({ status }) => {
+        if (status === "readyToPlay") talkingPlayer.loop = true;
+      });
+      return () => subscription.remove();
+    }, [talkingPlayer]);
 
     const goIdle = useCallback(() => {
       Animated.timing(talkingOpacity, {
@@ -67,7 +93,10 @@ export const TalkingAvatar = forwardRef<TalkingAvatarHandle, TalkingAvatarProps>
       }).start(() => {
         talkingPlayer.pause();
       });
-      idlePlayer.currentTime = 0;
+      // Deliberately NOT rewinding to 0: the idle layer has been looping
+      // underneath the whole time, so seeking it back to the first frame is
+      // a visible jump at exactly the moment the crossfade is trying to hide
+      // the transition. Just make sure it's still running.
       idlePlayer.play();
       setState("idle");
       onStateChange?.("idle");
@@ -84,13 +113,6 @@ export const TalkingAvatar = forwardRef<TalkingAvatarHandle, TalkingAvatarProps>
       setState("talking");
       onStateChange?.("talking");
     }, [talkingPlayer, talkingOpacity, crossfadeDurationMs, onStateChange]);
-
-    useEffect(() => {
-      const subscription = talkingPlayer.addListener("playToEnd", () => {
-        goIdle();
-      });
-      return () => subscription.remove();
-    }, [talkingPlayer, goIdle]);
 
     useImperativeHandle(
       ref,

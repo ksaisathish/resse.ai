@@ -32,12 +32,18 @@ export const ENABLE_FACE_PRESENCE = process.env.EXPO_PUBLIC_ENABLE_FACE_PRESENCE
 
 export function PresenceTrigger({
   onPresent,
+  onAbsent,
   onCountChange,
   onError,
   intervalMs = 4000,
   style,
 }: {
   onPresent: () => void;
+  /** Fires on the present -> absent edge, i.e. whoever was standing here
+   * has walked off. The hands-free screen uses this to end the current
+   * conversation rather than keeping a follow-up mic window open for
+   * someone who already left. */
+  onAbsent?: () => void;
   /** Fires with the latest head-count on every check, not just on the
    * present/absent edge — use this to drive a live "N detected" display. */
   onCountChange?: (count: number) => void;
@@ -59,6 +65,7 @@ export function PresenceTrigger({
     checkPresence,
     intervalMs,
     onPresent,
+    onAbsent,
     onError,
   });
   const { start, count } = presence;
