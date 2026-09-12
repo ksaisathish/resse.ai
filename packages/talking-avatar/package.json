@@ -1,0 +1,18 @@
+{
+  "name": "@resse/talking-avatar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plug-and-play idle/talking video avatar component for the Resse.ai Expo app.",
+  "main": "src/index.tsx",
+  "types": "src/index.tsx",
+  "sideEffects": false,
+  "peerDependencies": {
+    "react": ">=19",
+    "react-native": ">=0.81",
+    "expo-video": ">=2.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "typescript": "~5.9.0"
+  }
+}

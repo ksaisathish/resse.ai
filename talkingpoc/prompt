@@ -1,0 +1,215 @@
+# Talking Receptionist — Decision + Prompts (9:16 portrait)
+
+## Decision: SadTalker for speaking, Gemini/Veo (or Grok) for silent loops
+
+These solve different problems — use both, not one instead of the other:
+
+- **Speaking state → SadTalker** (or Wav2Lip if you want lighter/faster). These take
+  a single still photo + a real audio file and generate lips that match that exact
+  audio, sample-accurate. That's what you need: your TTS engine produces the audio,
+  SadTalker renders a video whose mouth actually matches those words. Gemini/Veo-style
+  text-to-video generates its own guessed mouth motion — it is not driven by your TTS
+  audio, so it will drift out of sync with what the receptionist is actually saying.
+  Not usable for a state that must match generated speech.
+- **Idle / thinking / welcome / thank_you → Gemini (Veo) or Grok video-gen**, since
+  these are silent, scripted loops/gestures with no audio to match. Either engine is
+  fine here; pick whichever is fastest for you to iterate with.
+
+Fastest path to a working demo:
+1. Generate ONE reference photo/frame of the receptionist (or the first frame of your
+   Gemini/Grok idle.mp4) — reuse it as the source image for SadTalker so the face
+   stays identical across the speaking clip and the idle/gesture clips.
+2. Run SadTalker locally against that photo + a sample TTS audio clip to produce
+   `speaking.mp4` (or generate it live, per-utterance, at demo time — see below).
+3. Generate `idle.mp4`, `thinking.mp4`, `welcome.mp4`, `thank_you.mp4` via Gemini/Grok
+   using the master prompt below, seeded/reference-imaged off the same source photo.
+
+### Running SadTalker (speaking state)
+
+```bash
+git clone https://github.com/OpenTalker/SadTalker.git
+cd SadTalker
+conda create -n sadtalker python=3.8 -y && conda activate sadtalker
+pip install -r requirements.txt
+bash scripts/download_models.sh   # or the Windows equivalent in their README
+
+python inference.py \
+  --driven_audio ./examples/driven_audio/tts_output.wav \
+  --source_image ./examples/source_image/receptionist.png \
+  --result_dir ./results \
+  --still --preprocess full --enhancer gfpgan
+```
+
+- `--driven_audio` is the WAV your TTS step just produced for that turn.
+- `--still` keeps head movement minimal so it matches the "locked tripod" framing
+  of the other clips.
+- `--enhancer gfpgan` sharpens the face; drop it if you need faster turnaround.
+- For live, per-utterance generation at runtime (not pre-baked), call this same
+  command from your backend right after TTS finishes, then stream/serve the
+  resulting mp4 to the frontend crossfader below. Expect several seconds of
+  render time on CPU — a GPU (even a modest one) is strongly recommended if you
+  want this in the live demo loop rather than pre-generated.
+- If render time is too slow for a live demo, fall back to **Wav2Lip** (faster,
+  slightly lower fidelity) with the same source photo, or pre-generate a small
+  library of `speaking_*.mp4` loops and pick the closest-length one instead of
+  generating on the fly.
+
+------------------------------
+
+## 🖥️ Master Technical Configurations (For Gemini / Grok / Runway / Kling)
+
+* **Aspect Ratio: 9:16 (vertical/portrait)** — matches the phone/tablet kiosk
+  mounted upright. All prompts below are written for 9:16.
+* Motion Strength / Weight: Low / Medium-Low (~20–30%). High motion warps the
+  background and morphs her face.
+* Camera: Locked tripod shot, absolute zero panning, zero zooming.
+
+------------------------------
+
+## 🌟 The Complete Master Style Baseline (Includes Posture & Camera)
+
+**Master Baseline:** A cinematic, photo-realistic 4K video of a professional, 28-year-old South Indian corporate female receptionist with elegant features, large warm expressive eyes, and a pleasant smile. Hair is neatly styled in a professional clean low bun. **Posture:** She is sitting perfectly upright and centered in a formal, professional corporate posture behind a modern, clean receptionist desk. She is wearing a modern, minimalist corporate outfit: a light pastel-colored blazer over a crisp white shirt. **Frame & Aspect Ratio:** Medium close-up shot, **9:16 vertical/portrait aspect ratio**, head and shoulders perfectly framed and completely centered, with extra headroom and chest-room top/bottom to fill the taller vertical frame naturally (do not crop in from a landscape composition — compose vertically from the start). **Background:** A bright, light-colored, highly modern corporate office lobby with soft white, beige, and light gray tones, softly blurred (bokeh effect), extending naturally above and below her into the taller frame. **Camera Control:** Locked tripod shot, absolute zero camera movement, zero panning, zero tilting. High-key studio lighting with soft shadows, hyper-realistic skin textures, and ultra-sharp focus.
+
+------------------------------
+
+## 🎬 Scenario Prompts (silent loops — Gemini/Veo/Grok)
+
+### 1. The Idle Loop (idle.mp4)
+[Master Baseline]. Action: Idle loop state. She looks directly into the camera lens with a polite, welcoming, and gentle resting smile. She blinks naturally and comfortably every few seconds. Subtle, micro-movements of natural breathing and minor, realistic posture adjustments while remaining centered. Her lips remain completely closed, forming a warm, approachable resting expression. The bright, light-colored background and her desk remain perfectly static. Looping Instruction: The video loops seamlessly from the last frame back to the first frame without any jump cuts or shifts in body position.
+
+### 2. The Thinking State (thinking.mp4)
+[Master Baseline]. Action: Active listening and thinking state. She maintains direct eye contact with a gentle, intelligent, and attentive expression. Her mouth is closed. She performs a very subtle, respectful head tilt and a single, slow, natural nod to acknowledge she is processing information. Natural breathing and blinking while maintaining her centered, upright seating posture. Her expression radiates helpfulness and focus, maintaining a pristine professional corporate demeanor against the clean, light-colored backdrop.
+
+### 3. The Welcome Gesture (welcome.mp4)
+[Master Baseline]. Action: Warm greeting gesture. She smiles brightly and delivers a welcoming, polite head-nod. Simultaneously, she brings her hands together at her chest level in a graceful, modern corporate Namaste / Vanakkam greeting gesture. Her expression is joyful, professional, and deeply hospitable. Framing Rule: The clip starts exactly from her resting neutral idle pose, completes the warm greeting gesture fluidly, and returns her hands and posture smoothly back to the exact original resting neutral posture at the final frame.
+
+### 4. The Thank You / Farewell Gesture (thank_you.mp4)
+[Master Baseline]. Action: Polite appreciation and farewell gesture. Her smile softens into a warm, deeply respectful expression of gratitude. She performs a gentle, slow nod of appreciation. She brings her hands together near her chest in an elegant corporate thank-you gesture. The movement is calm, dignified, and professional. Framing Rule: The video begins exactly in her neutral idle pose against the bright, light background, executes the polite nod and hand gesture, and transitions seamlessly back to the exact neutral resting pose by the very last frame.
+
+**The speaking state (`speaking.mp4`) is NOT generated from a text prompt** — it comes from SadTalker/Wav2Lip driven by real TTS audio, per the section above, so lips actually match the words.
+
+------------------------------
+
+## 🧠 Consistency Across Engines
+1. **Same source image everywhere:** export the first frame of your Gemini/Grok `idle.mp4` (or generate one reference photo first) and use it as: (a) the reference/seed image for the other Gemini/Grok prompts, and (b) the `--source_image` for SadTalker. This keeps face, outfit, and background identical across every clip.
+2. **Seed reuse (Gemini/Grok only):** if the engine returns a seed for `idle.mp4`, reuse that exact seed for `thinking`, `welcome`, and `thank_you`.
+
+------------------------------
+
+## 🏢 Frontend Architecture (HTML & CSS) — updated for 9:16
+
+Dual-layer crossfader: a Base Layer for looping states (idle/thinking) and an Action Layer for one-off/audio-driven states (welcome, speaking, thank_you), blended with CSS opacity so switching is instant and gapless — no `src`-swap flash.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Receptionist Video Handler</title>
+  <style>
+    /* Container maintaining the 9:16 portrait aspect ratio */
+    .avatar-container {
+      position: relative;
+      width: 100%;
+      max-width: 450px; /* portrait: constrain width, not height */
+      aspect-ratio: 9 / 16;
+      background-color: #f0f0f0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      margin: 0 auto;
+    }
+
+    .avatar-video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* fills the 9:16 frame; crops evenly if a source clip is landscape */
+      transition: opacity 0.2s ease-in-out;
+    }
+
+    #base-player { z-index: 1; opacity: 1; }
+    #action-player { z-index: 2; opacity: 0; }
+  </style>
+</head>
+<body>
+  <div class="avatar-container">
+    <video id="base-player" class="avatar-video" autoplay loop muted playsinline></video>
+    <video id="action-player" class="avatar-video" muted playsinline></video>
+  </div>
+</body>
+</html>
+```
+
+> If a clip ever comes back landscape (e.g. an engine ignored the 9:16 setting), don't just rely on `object-fit: cover` — that crops the sides off instead of rotating. Re-export it portrait with ffmpeg before serving it:
+> ```bash
+> ffmpeg -i landscape_input.mp4 -vf "transpose=1" -c:a copy rotated_portrait.mp4
+> ```
+> `transpose=1` rotates 90° clockwise; use `transpose=2` for counter-clockwise depending on which way the source is rotated. Only do this if the source is genuinely sideways — don't rotate a correctly-composed landscape clip, re-generate it at 9:16 instead, since rotation crops content top/bottom compared to a clip actually composed portrait.
+
+------------------------------
+
+## 🧠 The State Machine Controller (JavaScript)
+
+```javascript
+const VIDEO_ASSETS = {
+  idle: 'assets/idle.mp4',
+  thinking: 'assets/thinking.mp4',
+  speaking: 'assets/speaking.mp4', // produced by SadTalker per-utterance, or picked from a pre-rendered library
+  welcome: 'assets/welcome.mp4',
+  thank_you: 'assets/thank_you.mp4'
+};
+
+const basePlayer = document.getElementById('base-player');
+const actionPlayer = document.getElementById('action-player');
+let currentState = 'idle';
+
+function initAvatar() {
+  basePlayer.src = VIDEO_ASSETS.idle;
+  basePlayer.play().catch(err => console.log("Autoplay blocked, waiting for user interaction:", err));
+}
+
+function transitionToState(nextState) {
+  if (nextState === currentState) return;
+  console.log(`Transitioning avatar: ${currentState} ➔ ${nextState}`);
+  currentState = nextState;
+
+  if (nextState === 'idle' || nextState === 'thinking') {
+    actionPlayer.style.opacity = '0';
+    basePlayer.src = VIDEO_ASSETS[nextState];
+    basePlayer.play();
+    setTimeout(() => {
+      if (currentState === 'idle' || currentState === 'thinking') {
+        actionPlayer.pause();
+        actionPlayer.src = '';
+      }
+    }, 200);
+  } else {
+    actionPlayer.src = VIDEO_ASSETS[nextState];
+    actionPlayer.loop = (nextState === 'speaking');
+    actionPlayer.onloadeddata = () => {
+      actionPlayer.play().then(() => {
+        actionPlayer.style.opacity = '1';
+      });
+    };
+    if (nextState === 'welcome' || nextState === 'thank_you') {
+      actionPlayer.onended = () => transitionToState('idle');
+    }
+  }
+}
+
+window.addEventListener('DOMContentLoaded', initAvatar);
+```
+
+For `speaking`, since the clip is generated per-utterance from live TTS audio rather than a static file, set `VIDEO_ASSETS.speaking` to the freshly generated clip's URL right before calling `transitionToState('speaking')`, and end it on `audio.onended` → `transitionToState('idle')` rather than `actionPlayer.onended`, so it stays in sync with actual audio playback rather than the video's own (approximate) duration.
+
+------------------------------
+
+## 🔌 Connecting to your pipeline
+1. **User submits prompt:** `transitionToState('thinking')` immediately while waiting for the LLM response.
+2. **LLM response ready → TTS starts:** generate/fetch the SadTalker `speaking` clip for that audio, set it as `VIDEO_ASSETS.speaking`, then call `transitionToState('speaking')` at the exact moment `audio.play()` fires.
+3. **Audio ends:** `audio.onended` → `transitionToState('idle')`.
+4. **Interrupted (user talks over her):** stop the audio engine and immediately `transitionToState('idle')`.
