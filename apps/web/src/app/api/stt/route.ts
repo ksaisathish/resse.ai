@@ -18,8 +18,22 @@ export async function POST(request: Request) {
     return Response.json({ error: "Expected a multipart `audio` field." }, { status: 400 });
   }
 
+  // Reject an effectively empty clip here rather than paying for a round
+  // trip that comes back as "Audio file might be corrupted or unsupported".
+  if (audio.size < 1024) {
+    return Response.json(
+      { error: `Audio clip was too small to transcribe (${audio.size} bytes).` },
+      { status: 400 },
+    );
+  }
+
+  // Keep the uploaded filename so the extension still matches the actual
+  // container — renaming everything to .m4a makes the transcription API
+  // reject correctly-formatted audio that just isn't m4a.
+  const filename = audio instanceof File && audio.name ? audio.name : "clip.m4a";
+
   const upstream = new FormData();
-  upstream.append("file", audio, "clip.m4a");
+  upstream.append("file", audio, filename);
   upstream.append("model", "gpt-4o-mini-transcribe");
 
   const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {

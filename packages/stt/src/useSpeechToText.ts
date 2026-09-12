@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  AudioModule,
-  RecordingPresets,
-  useAudioRecorder,
-  useAudioRecorderState,
-} from "expo-audio";
+import { AudioModule, RecordingPresets, useAudioRecorder } from "expo-audio";
 import { transcribeAudio } from "./transcribeAudio";
 import type { UseSpeechToTextOptions, UseSpeechToTextResult } from "./types";
 
@@ -17,14 +12,24 @@ const METERING_POLL_MS = 200;
  * recognition API, so cloud transcription is the only option without
  * ejecting to a dev client.
  *
- * Auto-stops on its own in two ways, so a hands-free caller (see
- * @resse/presence) never has to babysit a fixed timer: once metering
- * (`isMeteringEnabled`) reports silence (below `silenceThresholdDb`) for
- * `autoStopSilenceMs`, or unconditionally after `autoStopMaxDurationMs` as a
- * safety cap if metering is unsupported or the room never reads as quiet.
- * A caller can still call `stopListening()` manually at any time (e.g. on
- * button release) — whichever happens first wins, and `onTranscript` fires
- * exactly once either way.
+ * Auto-stops on its own so a hands-free caller (see @resse/presence) never
+ * has to babysit a timer: after `autoStopSilenceMs` of metered silence, or
+ * unconditionally at `autoStopMaxDurationMs`. A caller can still call
+ * `stopListening()` manually (e.g. button release) — whichever happens
+ * first wins, and `onTranscript` fires exactly once either way.
+ *
+ * Two things this deliberately does NOT do, both learned the hard way:
+ *
+ * 1. It never polls recorder state into React state. `useAudioRecorderState`
+ *    re-renders its consumer on every sample, forever — which, in a screen
+ *    that also hosts video/camera/WebView surfaces, shows up as constant
+ *    visible flicker. Metering is sampled into refs instead, so the
+ *    watchdog costs zero renders.
+ * 2. It never silence-stops on metering it hasn't actually seen. If a device
+ *    reports `metering: undefined`, treating that as "silent" cuts every
+ *    clip off at the silence threshold (~1.5s) no matter what the person is
+ *    saying. Silence-stopping only arms once a real numeric sample arrives;
+ *    otherwise the max-duration cap is the only stop.
  */
 export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeechToTextResult {
   const {
@@ -34,15 +39,16 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
     autoStopMaxDurationMs = 12000,
     silenceThresholdDb = -35,
     autoStopGraceMs = 1200,
+    minDurationMs = 700,
     ...config
   } = options;
   const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
-  const recorderState = useAudioRecorderState(recorder, METERING_POLL_MS);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const hasPermission = useRef(false);
   const recordingStartedAt = useRef(0);
   const lastLoudAt = useRef(0);
+  const sawMetering = useRef(false);
   const autoStopping = useRef(false);
 
   const startListening = useCallback(async () => {
@@ -58,6 +64,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
     recorder.record();
     recordingStartedAt.current = Date.now();
     lastLoudAt.current = 0;
+    sawMetering.current = false;
     autoStopping.current = false;
     setIsRecording(true);
   }, [recorder, onError]);
@@ -65,10 +72,22 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
   const stopListening = useCallback(async (): Promise<string | null> => {
     if (!isRecording) return null;
     setIsRecording(false);
+
+    const heldForMs = Date.now() - recordingStartedAt.current;
     await recorder.stop();
     const uri = recorder.uri;
     if (!uri) {
       onError?.(new Error("Recording finished with no file URI."));
+      return null;
+    }
+    // Anything this short is mic warm-up, not speech. Uploading it either
+    // fails at the transport layer (an effectively empty file) or comes back
+    // as an empty transcript — both of which surface as confusing errors far
+    // downstream, so stop here with something readable instead.
+    if (heldForMs < minDurationMs) {
+      onError?.(
+        new Error(`That recording was too short (${heldForMs}ms) to transcribe — try again.`),
+      );
       return null;
     }
 
@@ -84,42 +103,64 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
       setIsTranscribing(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRecording, recorder, onTranscript, onError]);
+  }, [isRecording, recorder, onTranscript, onError, minDurationMs]);
 
-  // Silence/max-duration watchdog. Runs on every metering sample rather than
-  // its own setInterval, since useAudioRecorderState is already polling the
-  // recorder — piggybacking avoids a second timer racing the same state.
+  // Keeps the watchdog interval from being torn down and rebuilt every time
+  // stopListening's identity changes.
+  const stopListeningRef = useRef(stopListening);
+  stopListeningRef.current = stopListening;
+
+  // Silence / max-duration watchdog. Its own interval, running only while
+  // recording, reading metering straight off the recorder into refs — no
+  // component state, so no re-render per sample.
   useEffect(() => {
-    if (!isRecording || autoStopping.current) return;
+    if (!isRecording) return;
     if (autoStopSilenceMs <= 0 && autoStopMaxDurationMs <= 0) return;
 
-    const now = Date.now();
-    const metering = recorderState.metering;
-    if (typeof metering === "number" && metering > silenceThresholdDb) {
-      lastLoudAt.current = now;
-    }
+    const timer = setInterval(() => {
+      if (autoStopping.current) return;
 
-    const elapsedSinceStart = now - recordingStartedAt.current;
-    const elapsedSinceLoud = now - (lastLoudAt.current || recordingStartedAt.current);
+      const now = Date.now();
+      let metering: number | undefined;
+      try {
+        metering = recorder.getStatus().metering;
+      } catch {
+        metering = undefined;
+      }
 
-    const hitMaxDuration = autoStopMaxDurationMs > 0 && elapsedSinceStart >= autoStopMaxDurationMs;
-    const hitSilence =
-      autoStopSilenceMs > 0 &&
-      elapsedSinceStart >= autoStopGraceMs &&
-      elapsedSinceLoud >= autoStopSilenceMs;
+      if (typeof metering === "number" && Number.isFinite(metering)) {
+        sawMetering.current = true;
+        if (metering > silenceThresholdDb) lastLoudAt.current = now;
+      }
 
-    if (hitMaxDuration || hitSilence) {
-      autoStopping.current = true;
-      void stopListening();
-    }
+      const elapsedSinceStart = now - recordingStartedAt.current;
+      const hitMaxDuration =
+        autoStopMaxDurationMs > 0 && elapsedSinceStart >= autoStopMaxDurationMs;
+
+      // Only trust silence when this device actually reports levels, and
+      // only after we've heard at least one loud sample — otherwise a quiet
+      // start would end the clip before the person begins speaking.
+      const hitSilence =
+        autoStopSilenceMs > 0 &&
+        sawMetering.current &&
+        lastLoudAt.current > 0 &&
+        elapsedSinceStart >= autoStopGraceMs &&
+        now - lastLoudAt.current >= autoStopSilenceMs;
+
+      if (hitMaxDuration || hitSilence) {
+        autoStopping.current = true;
+        void stopListeningRef.current();
+      }
+    }, METERING_POLL_MS);
+
+    return () => clearInterval(timer);
   }, [
     isRecording,
-    recorderState.metering,
+    recorder,
     autoStopSilenceMs,
     autoStopMaxDurationMs,
     silenceThresholdDb,
     autoStopGraceMs,
-    stopListening,
   ]);
 
   return { isRecording, isTranscribing, startListening, stopListening };

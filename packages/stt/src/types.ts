@@ -38,6 +38,12 @@ export interface UseSpeechToTextOptions extends SpeechToTextConfig {
    * cut off immediately.
    * @default 1200 */
   autoStopGraceMs?: number;
+  /** Recordings shorter than this are treated as mic warm-up rather than
+   * speech and rejected locally instead of being uploaded — an effectively
+   * empty clip otherwise fails confusingly at the network or transcription
+   * layer.
+   * @default 700 */
+  minDurationMs?: number;
 }
 
 export interface UseSpeechToTextResult {

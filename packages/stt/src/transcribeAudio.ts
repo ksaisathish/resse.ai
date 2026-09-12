@@ -23,11 +23,26 @@ export async function transcribeAudio(
 ): Promise<string> {
   const url = resolveUrl(config);
 
+  // Name/type have to match what the recorder actually produced. Hardcoding
+  // .m4a means a recorder configured for another container uploads a
+  // mislabeled file, and the transcription API rejects it as corrupt rather
+  // than saying the type is wrong.
+  const extension = (fileUri.split(/[?#]/)[0].split(".").pop() ?? "m4a").toLowerCase();
+  const mimeByExtension: Record<string, string> = {
+    m4a: "audio/m4a",
+    mp4: "audio/mp4",
+    caf: "audio/x-caf",
+    aac: "audio/aac",
+    wav: "audio/wav",
+    webm: "audio/webm",
+    "3gp": "audio/3gpp",
+  };
+
   const formData = new FormData();
   formData.append("audio", {
     uri: fileUri,
-    name: "clip.m4a",
-    type: "audio/m4a",
+    name: `clip.${extension}`,
+    type: mimeByExtension[extension] ?? "audio/m4a",
   } as unknown as Blob);
 
   const response = await fetch(url, {

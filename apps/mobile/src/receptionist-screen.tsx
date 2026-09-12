@@ -10,7 +10,7 @@
  * status ("Listening…"/"Thinking…") — deliberately minimal, since the
  * avatar itself is the interface here.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
@@ -21,6 +21,13 @@ import { useReceptionAgent } from "@/use-reception-agent";
 import { PresenceTrigger } from "@/presence-trigger";
 import { loadSettings } from "@/settings-store";
 import { ListeningIndicator } from "@/listening-indicator";
+
+// Minimum quiet time after a listen/transcribe/answer cycle ends before
+// presence is allowed to start another one. Without this, anything that
+// makes presence flap (MediaPipe missing a face for one frame, a failing
+// upload resetting state instantly) re-triggers listening immediately and
+// the screen thrashes between listening/idle several times a second.
+const RETRIGGER_COOLDOWN_MS = 3000;
 
 // Screens keep registering CopilotKit tools/context (via <Tools>) even when
 // pushed underneath another screen in the stack, since native-stack doesn't
@@ -54,13 +61,31 @@ function ReceptionistScreenContent() {
     startListening,
   } = useReceptionAgent();
 
+  // Blocks a new listen from starting for RETRIGGER_COOLDOWN_MS after the
+  // last one finished, however it finished.
+  const coolingDown = useRef(false);
+  const wasActive = useRef(false);
+
+  useEffect(() => {
+    const active = isRecording || isTranscribing || busy;
+    const justFinished = wasActive.current && !active;
+    wasActive.current = active;
+    if (!justFinished) return;
+
+    coolingDown.current = true;
+    const timer = setTimeout(() => {
+      coolingDown.current = false;
+    }, RETRIGGER_COOLDOWN_MS);
+    return () => clearTimeout(timer);
+  }, [isRecording, isTranscribing, busy]);
+
   // Auto-stop (silence detection + a hard max-duration cap) lives in
   // useSpeechToText itself now — see packages/stt/src/useSpeechToText.ts —
   // so this just starts listening; the hook decides when to stop and the
   // transcript gets sent automatically via its onTranscript callback (wired
   // in use-reception-agent.ts).
   const handlePresenceDetected = useCallback(() => {
-    if (busy || isRecording || isTranscribing) return;
+    if (busy || isRecording || isTranscribing || coolingDown.current) return;
     void startListening();
   }, [busy, isRecording, isTranscribing, startListening]);
 
