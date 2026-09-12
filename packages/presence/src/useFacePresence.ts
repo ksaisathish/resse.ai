@@ -20,6 +20,21 @@ export function useFacePresence(
   const [isActive, setIsActive] = useState(false);
   const wasPresent = useRef(false);
 
+  // Callers pass these as inline arrows, so their identity changes on every
+  // render of the calling component. Reading them out of a ref instead of
+  // closing over them keeps `runCheck` — and therefore the capture interval
+  // below — stable.
+  //
+  // This is load-bearing, not tidiness: when the interval effect depended on
+  // callback identity, every render tore the interval down and rebuilt it,
+  // and the rebuild fires `runCheck()` immediately. Since runCheck itself
+  // sets state (isChecking), that render triggered the next capture, which
+  // triggered the next render — a camera-capture loop running flat out
+  // instead of once per intervalMs, which is what made the kiosk visibly
+  // flicker and hammer the detector.
+  const callbacks = useRef({ checkPresence, onPresent, onAbsent, onError });
+  callbacks.current = { checkPresence, onPresent, onAbsent, onError };
+
   const runCheck = useCallback(async () => {
     if (!cameraRef.current) return;
     setIsChecking(true);
@@ -30,18 +45,18 @@ export function useFacePresence(
         shutterSound: false,
       });
       if (!photo?.uri) return;
-      const result = await checkPresence(photo.uri);
+      const result = await callbacks.current.checkPresence(photo.uri);
       setIsPresent(result.present);
       setCount(result.count);
-      if (result.present && !wasPresent.current) onPresent?.();
-      if (!result.present && wasPresent.current) onAbsent?.();
+      if (result.present && !wasPresent.current) callbacks.current.onPresent?.();
+      if (!result.present && wasPresent.current) callbacks.current.onAbsent?.();
       wasPresent.current = result.present;
     } catch (error) {
-      onError?.(error instanceof Error ? error : new Error(String(error)));
+      callbacks.current.onError?.(error instanceof Error ? error : new Error(String(error)));
     } finally {
       setIsChecking(false);
     }
-  }, [cameraRef, checkPresence, onPresent, onAbsent, onError]);
+  }, [cameraRef]);
 
   useEffect(() => {
     if (!isActive) return;

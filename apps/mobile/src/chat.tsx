@@ -48,6 +48,12 @@ function ChatScreenContent() {
   const listRef = useRef<FlatList>(null);
   const renderToolCall = useRenderToolCall();
   const [draft, setDraft] = useState("");
+  // "Nobody spoke" isn't an error (see @resse/stt's onNoSpeech), so it gets
+  // a quiet line rather than the red "could not reach the agent" banner —
+  // but it still needs to say something, or a mic tap that caught nothing
+  // looks like the button is broken.
+  const [notice, setNotice] = useState<string>();
+  const handleNoSpeech = useCallback(() => setNotice("Didn't catch that — try again."), []);
   const {
     reception,
     setReception,
@@ -62,10 +68,11 @@ function ChatScreenContent() {
     conversationMessages,
     messages,
     activeToolLabel,
-  } = useReceptionAgent();
+  } = useReceptionAgent({ onNoSpeech: handleNoSpeech });
 
   const send = useCallback(() => {
     const text = draft;
+    setNotice(undefined);
     setDraft("");
     void sendText(text);
   }, [sendText, draft]);
@@ -164,6 +171,10 @@ function ChatScreenContent() {
           <Text style={styles.gateBody}>{error}</Text>
           <Text style={styles.gateBody}>Start npm run dev:web and check src/config.ts.</Text>
         </View>
+      ) : null}
+
+      {notice && !error ? (
+        <Text style={[styles.rowMeta, { marginHorizontal: 16 }]}>{notice}</Text>
       ) : null}
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>

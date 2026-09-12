@@ -29,6 +29,7 @@ import { useReceptionAgent } from "@/use-reception-agent";
 import { PresenceTrigger } from "@/presence-trigger";
 import { loadSettings } from "@/settings-store";
 import { ListeningIndicator } from "@/listening-indicator";
+import { toSpeechText } from "@/speech-text";
 
 // Minimum quiet time before presence is allowed to open a NEW conversation
 // after the last one ended. Without it, anything that makes presence flap
@@ -46,6 +47,21 @@ const RETRIGGER_COOLDOWN_MS = 3000;
 export function ReceptionistScreen() {
   const isFocused = useIsFocused();
   return isFocused ? <ReceptionistScreenContent /> : null;
+}
+
+/** Latest spoken text for a role, cleaned of any markdown the agent still
+ * slips in — captions sit over video, where stray asterisks read as noise. */
+function findLastText(
+  conversationMessages: { role: string; content?: unknown; id: string }[],
+  role: "user" | "assistant",
+): string {
+  for (let index = conversationMessages.length - 1; index >= 0; index -= 1) {
+    const message = conversationMessages[index];
+    if (message.role !== role) continue;
+    if (typeof message.content !== "string" || !message.content.trim()) continue;
+    return toSpeechText(message.content);
+  }
+  return "";
 }
 
 function ReceptionistScreenContent() {
@@ -83,6 +99,7 @@ function ReceptionistScreenContent() {
     stopListening,
     stopSpeaking,
     messages,
+    conversationMessages,
   } = useReceptionAgent({ onNoSpeech: handleNoSpeech });
 
   // Anything that means "the kiosk is mid-turn and must not open the mic".
@@ -126,14 +143,21 @@ function ReceptionistScreenContent() {
   // The follow-up turn: the instant the answer finishes playing, listen
   // again so the person can just keep talking. This is what makes it feel
   // like a conversation instead of a one-shot query.
+  //
+  // Gated on `conversing` alone, deliberately not on personCount: presence
+  // only refreshes every few seconds, and when the camera is blocked or
+  // still warming up it reads 0 even though someone is plainly standing
+  // there talking — which would silently kill follow-ups for exactly the
+  // people relying on the manual button. Conversations end on an explicit
+  // signal instead: they walked away (onAbsent), or nobody spoke
+  // (onNoSpeech).
   const wasSpeaking = useRef(false);
   useEffect(() => {
     const justStoppedSpeaking = wasSpeaking.current && !isSpeaking;
     wasSpeaking.current = isSpeaking;
-    if (!justStoppedSpeaking) return;
-    if (!conversing || personCount === 0) return;
+    if (!justStoppedSpeaking || !conversing) return;
     void startListening();
-  }, [isSpeaking, conversing, personCount, startListening]);
+  }, [isSpeaking, conversing, startListening]);
 
   // Every presence-check failure (network error, a malformed vision
   // response) used to be silently swallowed, so the only visible symptom
@@ -166,6 +190,12 @@ function ReceptionistScreenContent() {
   }, [messages]);
 
   const listeningStatus = isRecording ? "listening" : isTranscribing || busy ? "thinking" : "idle";
+
+  // Captions: there's no message list on this screen, so without these the
+  // only record of what was said is the audio itself — unusable in a noisy
+  // room, or for anyone who doesn't hear it clearly the first time.
+  const lastUserText = findLastText(conversationMessages, "user");
+  const lastAssistantText = findLastText(conversationMessages, "assistant");
 
   // One manual control, as a fallback for when presence detection doesn't
   // fire (camera blocked, model still loading, someone standing off-frame)
@@ -209,6 +239,21 @@ function ReceptionistScreenContent() {
         </View>
 
         <View style={{ flex: 1 }} pointerEvents="none" />
+
+        {lastUserText || lastAssistantText ? (
+          <View style={styles.captionPanel} pointerEvents="none">
+            {lastUserText ? (
+              <Text style={styles.captionUser} numberOfLines={2}>
+                “{lastUserText}”
+              </Text>
+            ) : null}
+            {lastAssistantText ? (
+              <Text style={styles.captionAssistant} numberOfLines={4}>
+                {lastAssistantText}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
 
         {pendingToolCalls.length > 0 ? (
           <ScrollView style={styles.receptionistToolPanel} contentContainerStyle={{ padding: 12 }}>

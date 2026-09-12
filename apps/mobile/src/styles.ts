@@ -75,6 +75,32 @@ export const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   presenceBadgeText: { color: C.text, fontSize: 13, fontWeight: "600" },
+
+  // Receptionist overlay: captions, approval cards and the manual control
+  // all sit over a full-screen video, so each needs its own dimmed backing
+  // to stay readable against whatever frame is behind it.
+  captionPanel: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "rgba(17,20,23,0.82)",
+    borderWidth: 1,
+    borderColor: C.border,
+    gap: 6,
+  },
+  captionUser: { color: C.muted, fontSize: 14, fontStyle: "italic" },
+  captionAssistant: { color: C.text, fontSize: 18, lineHeight: 25, fontWeight: "600" },
+  receptionistToolPanel: {
+    maxHeight: "55%",
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 14,
+    backgroundColor: "rgba(17,20,23,0.92)",
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  receptionistControls: { paddingHorizontal: 16, paddingBottom: 4 },
   listeningBadgeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   listeningDot: { width: 8, height: 8, borderRadius: 4 },
 presencePreview: {

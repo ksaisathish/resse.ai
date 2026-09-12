@@ -52,11 +52,19 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
   const sawMetering = useRef(false);
   const autoStopping = useRef(false);
 
+  // Callers pass these inline, so they get a new identity every render. Held
+  // in a ref so `startListening`/`stopListening` stay stable: a hands-free
+  // caller wires them into effects and callbacks that must not re-run just
+  // because the parent re-rendered (see @resse/presence's useFacePresence
+  // for what that churn costs when it reaches a capture loop).
+  const callbacks = useRef({ onTranscript, onError, onNoSpeech, config });
+  callbacks.current = { onTranscript, onError, onNoSpeech, config };
+
   const startListening = useCallback(async () => {
     if (!hasPermission.current) {
       const permission = await AudioModule.requestRecordingPermissionsAsync();
       if (!permission.granted) {
-        onError?.(new Error("Microphone permission was not granted."));
+        callbacks.current.onError?.(new Error("Microphone permission was not granted."));
         return;
       }
       hasPermission.current = true;
@@ -68,7 +76,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
     sawMetering.current = false;
     autoStopping.current = false;
     setIsRecording(true);
-  }, [recorder, onError]);
+  }, [recorder]);
 
   const stopListening = useCallback(async (): Promise<string | null> => {
     if (!isRecording) return null;
@@ -78,7 +86,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
     await recorder.stop();
     const uri = recorder.uri;
     if (!uri) {
-      onError?.(new Error("Recording finished with no file URI."));
+      callbacks.current.onError?.(new Error("Recording finished with no file URI."));
       return null;
     }
     // Anything this short is mic warm-up, not speech. Uploading it either
@@ -87,30 +95,29 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}): UseSpeech
     // error, since a hands-free caller opens the mic speculatively and this
     // is its normal empty outcome.
     if (heldForMs < minDurationMs) {
-      onNoSpeech?.();
+      callbacks.current.onNoSpeech?.();
       return null;
     }
 
     setIsTranscribing(true);
     try {
-      const text = await transcribeAudio(uri, config);
+      const text = await transcribeAudio(uri, callbacks.current.config);
       // A clip of pure silence/room noise transcribes to "" (or whitespace).
       // Passing that on as a transcript would send an empty turn to the
       // agent; it's the same "nobody spoke" outcome as a too-short clip.
       if (!text.trim()) {
-        onNoSpeech?.();
+        callbacks.current.onNoSpeech?.();
         return null;
       }
-      onTranscript?.(text);
+      callbacks.current.onTranscript?.(text);
       return text;
     } catch (error) {
-      onError?.(error instanceof Error ? error : new Error(String(error)));
+      callbacks.current.onError?.(error instanceof Error ? error : new Error(String(error)));
       return null;
     } finally {
       setIsTranscribing(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRecording, recorder, onTranscript, onError, onNoSpeech, minDurationMs]);
+  }, [isRecording, recorder, minDurationMs]);
 
   // Keeps the watchdog interval from being torn down and rebuilt every time
   // stopListening's identity changes.
