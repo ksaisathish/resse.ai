@@ -1,4 +1,6 @@
-import * as FileSystem from "expo-file-system";
+// See packages/tts/src/speakRealistic.ts for why this is /legacy: SDK 54's
+// expo-file-system root export dropped readAsStringAsync/EncodingType.
+import * as FileSystem from "expo-file-system/legacy";
 import type { PresenceChecker } from "./types";
 
 export interface VisionPresenceCheckerConfig {

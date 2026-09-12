@@ -1,4 +1,7 @@
-import * as FileSystem from "expo-file-system";
+// SDK 54's expo-file-system root export is the new Paths/File/Directory API;
+// cacheDirectory/writeAsStringAsync/EncodingType still exist, but only under
+// the /legacy subpath.
+import * as FileSystem from "expo-file-system/legacy";
 import { createAudioPlayer } from "expo-audio";
 import type { TextToSpeechConfig } from "./types";
 

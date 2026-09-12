@@ -71,7 +71,7 @@ export function CreateOrgScreen({ navigation }: Props) {
           knowledge base — hours, services, phone, what you do.
         </Text>
 
-        {status !== "confirming" ? (
+        {!scraped ? (
           <>
             <TextInput
               style={styles.input}

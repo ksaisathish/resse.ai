@@ -1,15 +1,31 @@
 import { labelForToolName } from "./labelForToolName";
 
+/** AG-UI/OpenAI-shaped tool call: the name and (JSON-string) arguments sit
+ * under `function`, not flat on the tool call itself. */
 interface MinimalToolCall {
   id: string;
-  name: string;
-  args?: Record<string, unknown>;
+  function: {
+    name: string;
+    arguments?: string;
+  };
 }
 
 interface MinimalMessage {
   role: string;
   toolCallId?: string;
   toolCalls?: MinimalToolCall[];
+}
+
+function parseArgs(raw: string | undefined): Record<string, unknown> | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : undefined;
+  } catch {
+    // Arguments can arrive as a partial JSON string mid-stream; treat that as
+    // "not parseable yet" rather than throwing.
+    return undefined;
+  }
 }
 
 /**
@@ -19,9 +35,8 @@ interface MinimalMessage {
  * Returns null when nothing is in flight.
  *
  * Duck-typed on purpose so this package doesn't need `@copilotkit/react-native`
- * as a dependency; the shapes match `ToolCall`/message objects from
- * apps/mobile/src/chat.tsx as of this writing — re-check if that surface
- * changes shape.
+ * as a dependency; the shape matches the AG-UI tool-call messages CopilotKit
+ * exposes as of this writing — re-check if that surface changes shape.
  */
 export function deriveActiveToolLabel(
   messages: MinimalMessage[],
@@ -35,7 +50,7 @@ export function deriveActiveToolLabel(
         (candidate) => candidate.role === "tool" && candidate.toolCallId === toolCall.id
       );
       if (!hasResult) {
-        return labelFn(toolCall.name, toolCall.args);
+        return labelFn(toolCall.function.name, parseArgs(toolCall.function.arguments));
       }
     }
   }
