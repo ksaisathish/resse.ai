@@ -12,6 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ChatScreen } from "@/chat";
+import { ReceptionistScreen } from "@/receptionist-screen";
 import { SplashScreen } from "@/splash-screen";
 import { LoginScreen } from "@/login-screen";
 import { DashboardScreen } from "@/dashboard-screen";
@@ -34,7 +35,9 @@ export default function App() {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Dashboard" component={DashboardScreen} />
             <Stack.Screen name="CreateOrg" component={CreateOrgScreen} options={{ headerShown: true, title: "Create organization" }} />
-            <Stack.Screen name="FrontDesk" component={ChatScreen} options={{ headerShown: true, title: "Front desk" }} />
+            <Stack.Screen name="FrontDesk" component={ChatScreen} options={{ headerShown: true, title: "Chat" }} />
+            {/* No header at all — full-screen immersion is the point. */}
+            <Stack.Screen name="Receptionist" component={ReceptionistScreen} options={{ headerShown: false }} />
           </Stack.Navigator>
         </NavigationContainer>
       </CopilotKitProvider>

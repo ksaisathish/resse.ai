@@ -69,9 +69,19 @@ export function DashboardScreen({ navigation }: Props) {
 
           <Pressable
             style={[styles.btn, styles.btnPrimary, styles.btnBlock, { marginTop: 24 }]}
+            onPress={() => navigation.navigate("Receptionist")}
+          >
+            <Text style={styles.btnPrimaryText}>Start receptionist</Text>
+          </Pressable>
+          <Text style={[styles.btnLink, { marginTop: 0, marginBottom: 4 }]}>
+            Full-screen avatar, hands-free — no mic press needed
+          </Text>
+
+          <Pressable
+            style={[styles.btn, styles.btnBlock, { marginTop: 12 }]}
             onPress={() => navigation.navigate("FrontDesk")}
           >
-            <Text style={styles.btnPrimaryText}>Start front desk</Text>
+            <Text style={styles.btnText}>Open chat instead</Text>
           </Pressable>
 
           <Pressable onPress={() => navigation.navigate("CreateOrg")}>

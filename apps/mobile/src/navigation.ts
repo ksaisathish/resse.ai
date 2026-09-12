@@ -3,5 +3,8 @@ export type RootStackParamList = {
   Login: undefined;
   Dashboard: undefined;
   CreateOrg: undefined;
+  /** Normal typed / press-and-hold-mic chat. */
   FrontDesk: undefined;
+  /** Full-screen avatar, hands-free, camera-driven. */
+  Receptionist: undefined;
 };

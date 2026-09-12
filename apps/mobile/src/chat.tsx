@@ -1,10 +1,8 @@
 /**
- * A headless chat screen.
- *
- * The prebuilt `<CopilotChat>` lives on the root/components entry points and
- * brings native peers (bottom-sheet, reanimated, gesture-handler) with it. This
- * screen is deliberately hand-rolled on the headless surface so the app has no
- * native dependencies beyond Expo's own.
+ * The plain chat screen — a normal message list, tool cards, and a composer
+ * with an optional press-and-hold mic. The other way to reach the same
+ * agent is receptionist-screen.tsx: full-screen avatar, hands-free,
+ * camera-driven. This screen is the "type or press mic" alternative.
  *
  * The part worth copying: tool calls are rendered through `useRenderToolCall()`,
  * which resolves the right renderer AND supplies `respond` for a
@@ -12,235 +10,103 @@
  * the local `useRenderTool` registry passes only `{ args, status }` with no
  * `respond`, so approvals silently cannot be answered.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  useAgent,
-  useCopilotKit,
-  useRenderToolCall,
-  type ToolCall,
-} from "@copilotkit/react-native/headless";
-import {
-  TalkingAvatar,
-  defaultIdleSource,
-  defaultTalkingSource,
-  type TalkingAvatarHandle,
-} from "@resse/talking-avatar";
-import { useTextToSpeech } from "@resse/tts";
-import { useSpeechToText } from "@resse/stt";
-import { ToolCallStatusBanner, deriveActiveToolLabel } from "@resse/tool-status-banner";
+import { useIsFocused } from "@react-navigation/native";
+import { useRenderToolCall, type ToolCall } from "@copilotkit/react-native/headless";
+import { ToolCallStatusBanner } from "@resse/tool-status-banner";
 import { Tools } from "@/tools";
 import { ConnectionStatus } from "@/connection-status";
 import { C, styles } from "@/styles";
-import { initialReception, upcomingAppointments } from "@/reception";
-import { createUserMessageId } from "@/message-id";
+import { upcomingAppointments } from "@/reception";
 import { AssistantMarkdown } from "@/assistant-markdown";
-import { BACKEND_ORIGIN } from "@/config";
-import { loadOrg } from "@/org";
-import { ENABLE_FACE_PRESENCE, PresenceTrigger } from "@/presence-trigger";
+import { useReceptionAgent } from "@/use-reception-agent";
 
-// How long a presence-triggered listen stays open before auto-sending —
-// there's no voice-activity-detection, so this is a fixed window, not a
-// silence detector. See presence-trigger.tsx.
-const PRESENCE_AUTO_STOP_MS = 6000;
-
-// Flag: "robotic" (default, free, on-device) vs "realistic" (cloud voice via
-// /api/tts, small per-character cost). Set EXPO_PUBLIC_TTS_MODE=realistic in
-// apps/mobile/.env to flip it — see packages/tts/README.md.
-const TTS_MODE = process.env.EXPO_PUBLIC_TTS_MODE === "realistic" ? "realistic" : "robotic";
-
+// Screens keep registering CopilotKit tools/context (via <Tools>) even when
+// pushed underneath another screen in the stack, since native-stack doesn't
+// unmount on blur by default — with two screens now sharing the same tool
+// set (this one and Receptionist), that would double-register them. This
+// wrapper unmounts the real content (and so its hooks) whenever the screen
+// isn't the focused one.
 export function ChatScreen() {
+  const isFocused = useIsFocused();
+  return isFocused ? <ChatScreenContent /> : null;
+}
+
+function ChatScreenContent() {
   const listRef = useRef<FlatList>(null);
-  const avatarRef = useRef<TalkingAvatarHandle>(null);
-  const lastSpokenMessageId = useRef<string | null>(null);
-  const { agent, isReady } = useAgent({ agentId: "default" });
-  const { copilotkit } = useCopilotKit();
   const renderToolCall = useRenderToolCall();
-  const [reception, setReception] = useState(initialReception);
   const [draft, setDraft] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const {
+    reception,
+    setReception,
+    isReady,
+    busy,
+    error,
+    sendText,
+    isRecording,
+    isTranscribing,
+    startListening,
+    stopListeningAndSend,
+    conversationMessages,
+    messages,
+    activeToolLabel,
+  } = useReceptionAgent();
 
-  const { speak } = useTextToSpeech({
-    mode: TTS_MODE,
-    baseUrl: BACKEND_ORIGIN,
-    onStart: () => avatarRef.current?.talk(),
-    onDone: () => avatarRef.current?.idle(),
-    onFallback: (fallbackError) =>
-      console.warn("Realistic TTS failed, used robotic instead:", fallbackError.message),
-  });
-
-  // Business info scraped during org onboarding (see create-org-screen.tsx)
-  // overrides the bundled demo data once it exists.
-  useEffect(() => {
-    void loadOrg().then((org) => {
-      if (!org) return;
-      setReception((current) => ({
-        ...current,
-        business: {
-          name: org.name,
-          hours: org.hours,
-          services: org.services,
-          phone: org.phone,
-          email: org.email,
-          address: org.address,
-          website: org.website,
-          description: org.description,
-          upiId: org.upiId,
-          bookingDepositAmount: org.bookingDepositAmount,
-        },
-      }));
-    });
-  }, []);
-
-  const sendText = useCallback(async (rawText: string) => {
-    const text = rawText.trim();
-    if (!text || busy) return;
-    if (!isReady) {
-      setError(
-        "Still connecting to the local CopilotKit runtime. Try again in a moment.",
-      );
-      return;
-    }
+  const send = useCallback(() => {
+    const text = draft;
     setDraft("");
-    setError(undefined);
-    setBusy(true);
+    void sendText(text);
+  }, [sendText, draft]);
 
-    try {
-      agent.addMessage({
-        id: createUserMessageId(),
-        role: "user",
-        content: text,
-      });
-      await copilotkit.runAgent({ agent });
-
-      const latestAssistantMessage = [...agent.messages]
-        .reverse()
-        .find((message) => message.role === "assistant");
-      const replyText =
-        latestAssistantMessage && typeof latestAssistantMessage.content === "string"
-          ? latestAssistantMessage.content
-          : "";
-      if (
-        latestAssistantMessage &&
-        replyText &&
-        lastSpokenMessageId.current !== latestAssistantMessage.id
-      ) {
-        lastSpokenMessageId.current = latestAssistantMessage.id;
-        void speak(replyText);
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
-    }
-  }, [agent, copilotkit, busy, isReady, speak]);
-
-  const send = useCallback(() => sendText(draft), [sendText, draft]);
-
-  const { isRecording, isTranscribing, startListening, stopListening } = useSpeechToText({
-    baseUrl: BACKEND_ORIGIN,
-    onError: (sttError) => setError(sttError.message),
-  });
-
-  const stopListeningAndSend = useCallback(async () => {
-    const transcript = await stopListening();
-    if (transcript) void sendText(transcript);
-  }, [stopListening, sendText]);
-
-  const handlePresenceDetected = useCallback(() => {
-    if (busy || isRecording || isTranscribing) return;
-    void startListening();
-    setTimeout(() => void stopListeningAndSend(), PRESENCE_AUTO_STOP_MS);
-  }, [busy, isRecording, isTranscribing, startListening, stopListeningAndSend]);
-
-  useEffect(() => {
-    const subscription = copilotkit.subscribe({
-      onError: (event) => {
-        if (event.context?.agentId !== "default" && event.context?.agentId)
-          return;
-
-        const message =
-          event.error instanceof Error
-            ? event.error.message
-            : String(event.error);
-        setError(message);
-        setBusy(false);
-      },
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [copilotkit]);
-
-  const messages = agent.messages ?? [];
-  const conversationMessages = messages.filter(
-    (message) => message.role === "user" || message.role === "assistant",
-  );
   const isSendDisabled = busy || !isReady;
-  const activeToolLabel = deriveActiveToolLabel(messages);
 
   return (
-    <View style={styles.fullScreenRoot}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <Tools reception={reception} setReception={setReception} />
 
-      {/* Full-bleed background — no aspectRatio, so it fills whatever size
-          this gets (the whole screen), cropping via contentFit="cover"
-          regardless of device orientation or the source clips' own ratio. */}
-      <TalkingAvatar
-        ref={avatarRef}
-        idleSource={defaultIdleSource}
-        talkingSource={defaultTalkingSource}
-        style={StyleSheet.absoluteFillObject}
-      />
+      <ConnectionStatus />
 
-      <SafeAreaView style={styles.overlayRoot} edges={["top", "bottom"]} pointerEvents="box-none">
-        <View style={styles.overlayTopBar} pointerEvents="box-none">
-          <ConnectionStatus />
+      {activeToolLabel ? (
+        <View style={{ marginHorizontal: 16, marginBottom: 8, alignSelf: "flex-start" }}>
+          <ToolCallStatusBanner label={activeToolLabel} />
         </View>
+      ) : null}
 
-        {ENABLE_FACE_PRESENCE ? <PresenceTrigger onPresent={handlePresenceDetected} /> : null}
-
-        {/* Spacer: pushes the conversation panel to the bottom, leaving the
-            rest of the video visible above it. */}
-        <View style={{ flex: 1 }} pointerEvents="none" />
-
-        <View style={styles.bottomPanel}>
-          {activeToolLabel ? (
-            <View style={{ marginBottom: 8, alignSelf: "flex-start" }}>
-              <ToolCallStatusBanner label={activeToolLabel} />
-            </View>
-          ) : null}
-
-          <View style={styles.compactHeader}>
-            <Text style={styles.compactHeaderTitle} numberOfLines={1}>
-              {reception.business.name}
-            </Text>
-            <Text style={styles.compactHeaderMeta}>
-              {upcomingAppointments(reception).length} upcoming
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>Resse.ai · Chat</Text>
+        <Text style={styles.title}>{reception.business.name}</Text>
+        <View style={styles.snapshot}>
+          <View style={styles.pill}>
+            <Text style={styles.pillLabel}>Hours</Text>
+            <Text style={styles.pillValue}>{reception.business.hours}</Text>
+          </View>
+          <View style={styles.pill}>
+            <Text style={styles.pillLabel}>Upcoming</Text>
+            <Text style={styles.pillValue}>
+              {upcomingAppointments(reception).length} appointment
+              {upcomingAppointments(reception).length === 1 ? "" : "s"}
             </Text>
           </View>
+        </View>
+      </View>
 
-          <FlatList
-            ref={listRef}
-            style={styles.transcriptList}
-            data={conversationMessages}
+      <FlatList
+        ref={listRef}
+        style={styles.list}
+        data={conversationMessages}
         keyExtractor={(message) => message.id}
-        onContentSizeChange={() =>
-          listRef.current?.scrollToEnd({ animated: true })
-        }
+        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
         ListEmptyComponent={
           <Text style={styles.empty}>
@@ -251,20 +117,13 @@ export function ChatScreen() {
         }
         renderItem={({ item: message }) => {
           const isUser = message.role === "user";
-          const text =
-            typeof message.content === "string" ? message.content : "";
-          const toolCalls: ToolCall[] =
-            "toolCalls" in message ? (message.toolCalls ?? []) : [];
+          const text = typeof message.content === "string" ? message.content : "";
+          const toolCalls: ToolCall[] = "toolCalls" in message ? (message.toolCalls ?? []) : [];
 
           return (
             <View>
               {text ? (
-                <View
-                  style={[
-                    styles.bubble,
-                    isUser ? styles.bubbleUser : styles.bubbleAgent,
-                  ]}
-                >
+                <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAgent]}>
                   {isUser ? (
                     <Text style={styles.bubbleTextUser}>{text}</Text>
                   ) : (
@@ -283,10 +142,7 @@ export function ChatScreen() {
                 );
                 return (
                   <View key={toolCall.id}>
-                    {renderToolCall({
-                      toolCall,
-                      toolMessage: toolMessage as never,
-                    })}
+                    {renderToolCall({ toolCall, toolMessage: toolMessage as never })}
                   </View>
                 );
               })}
@@ -295,61 +151,51 @@ export function ChatScreen() {
         }}
       />
 
-          {error ? (
-            <View style={styles.gate}>
-              <Text style={styles.gateTitle}>Could not reach the agent</Text>
-              <Text style={styles.gateBody}>{error}</Text>
-              <Text style={styles.gateBody}>
-                Start npm run dev:web and check src/config.ts.
-              </Text>
-            </View>
-          ) : null}
-
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-          >
-            <View style={styles.composer}>
-              <TextInput
-                style={styles.input}
-                value={draft}
-                onChangeText={setDraft}
-                placeholder={isRecording ? "Listening…" : isTranscribing ? "Transcribing…" : "Ask about the business or an appointment"}
-                placeholderTextColor="#6e6779"
-                onSubmitEditing={() => void send()}
-                returnKeyType="send"
-                editable={!busy && !isRecording && !isTranscribing}
-              />
-              <Pressable
-                style={[styles.btn, isRecording ? styles.btnPrimary : null]}
-                onPressIn={() => void startListening()}
-                onPressOut={() => void stopListeningAndSend()}
-                disabled={busy || isTranscribing || !isReady}
-              >
-                {isTranscribing ? (
-                  <ActivityIndicator color={C.text} size="small" />
-                ) : (
-                  <Text style={isRecording ? styles.btnPrimaryText : styles.btnText}>
-                    {isRecording ? "●" : "🎤"}
-                  </Text>
-                )}
-              </Pressable>
-              <Pressable
-                style={[styles.btn, styles.btnPrimary]}
-                onPress={() => void send()}
-                disabled={isSendDisabled}
-              >
-                {busy ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.btnPrimaryText}>
-                    {isReady ? "Send" : "Connecting"}
-                  </Text>
-                )}
-              </Pressable>
-            </View>
-          </KeyboardAvoidingView>
+      {error ? (
+        <View style={styles.gate}>
+          <Text style={styles.gateTitle}>Could not reach the agent</Text>
+          <Text style={styles.gateBody}>{error}</Text>
+          <Text style={styles.gateBody}>Start npm run dev:web and check src/config.ts.</Text>
         </View>
-      </SafeAreaView>
-    </View>
+      ) : null}
+
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <View style={styles.composer}>
+          <TextInput
+            style={styles.input}
+            value={draft}
+            onChangeText={setDraft}
+            placeholder={
+              isRecording ? "Listening…" : isTranscribing ? "Transcribing…" : "Ask about the business or an appointment"
+            }
+            placeholderTextColor="#6e6779"
+            onSubmitEditing={send}
+            returnKeyType="send"
+            editable={!busy && !isRecording && !isTranscribing}
+          />
+          <Pressable
+            style={[styles.btn, isRecording ? styles.btnPrimary : null]}
+            onPressIn={() => void startListening()}
+            onPressOut={() => void stopListeningAndSend()}
+            disabled={busy || isTranscribing || !isReady}
+          >
+            {isTranscribing ? (
+              <ActivityIndicator color={C.text} size="small" />
+            ) : (
+              <Text style={isRecording ? styles.btnPrimaryText : styles.btnText}>
+                {isRecording ? "●" : "🎤"}
+              </Text>
+            )}
+          </Pressable>
+          <Pressable style={[styles.btn, styles.btnPrimary]} onPress={send} disabled={isSendDisabled}>
+            {busy ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.btnPrimaryText}>{isReady ? "Send" : "Connecting"}</Text>
+            )}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

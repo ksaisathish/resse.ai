@@ -64,6 +64,18 @@ export const styles = StyleSheet.create({
   compactHeaderMeta: { color: C.muted, fontSize: 12 },
   transcriptList: { maxHeight: 200, flexGrow: 0 },
 
+  presenceBadge: {
+    alignSelf: "flex-start",
+    marginLeft: 12,
+    backgroundColor: "rgba(17,20,23,0.75)",
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  presenceBadgeText: { color: C.text, fontSize: 13, fontWeight: "600" },
+
   statusBar: {
     flexDirection: "row",
     alignItems: "center",

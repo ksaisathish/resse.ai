@@ -1,12 +1,12 @@
 /**
  * Vision-based presence check for @resse/presence's `createVisionPresenceChecker`.
  *
- * Takes { imageBase64 }, asks a cheap vision-capable model a strict yes/no
- * "is a person facing the camera" question, and returns { present }. This is
- * the fallback used only because Expo Go has no on-device face detector
- * available (see packages/presence/README.md) — it costs a small amount per
- * call, so keep the client-side polling interval reasonable (a few seconds,
- * not sub-second) and prefer gating it behind a flag rather than always on.
+ * Takes { imageBase64 }, asks a cheap vision-capable model to count the
+ * people facing the camera, and returns { count }. This is the fallback used
+ * only because Expo Go has no on-device face detector available (see
+ * packages/presence/README.md) — it costs a small amount per call, so keep
+ * the client-side polling interval reasonable (a few seconds, not
+ * sub-second) and prefer gating it behind a flag rather than always on.
  */
 export async function POST(request: Request) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
           content: [
             {
               type: "text",
-              text: "Is there a person's face visible in this image, facing roughly toward the camera? Reply with exactly one word: yes or no.",
+              text: "Count how many distinct people's faces are visible in this image, facing roughly toward the camera. Reply with exactly one integer (0, 1, 2, ...) and nothing else — no words, no punctuation.",
             },
             {
               type: "image_url",
@@ -58,6 +58,8 @@ export async function POST(request: Request) {
   const data = (await response.json()) as {
     choices?: { message?: { content?: string } }[];
   };
-  const answer = data.choices?.[0]?.message?.content?.trim().toLowerCase() ?? "";
-  return Response.json({ present: answer.startsWith("yes") });
+  const raw = data.choices?.[0]?.message?.content?.trim() ?? "";
+  const match = raw.match(/\d+/);
+  const count = match ? Math.max(0, parseInt(match[0], 10)) : 0;
+  return Response.json({ count });
 }

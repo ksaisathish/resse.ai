@@ -1,4 +1,7 @@
 export interface PresenceCheckResult {
+  /** How many people the checker detected. */
+  count: number;
+  /** Convenience — equivalent to `count > 0`. */
   present: boolean;
   /** Optional confidence/debug info the checker chose to surface. */
   detail?: unknown;
@@ -19,6 +22,9 @@ export interface UseFacePresenceOptions {
 
 export interface UseFacePresenceResult {
   isPresent: boolean;
+  /** How many people the most recent check detected. 0 before the first
+   * check completes. */
+  count: number;
   isChecking: boolean;
   /** Start the capture loop. Requires a mounted, ready expo-camera CameraView ref. */
   start: () => void;

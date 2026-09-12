@@ -15,6 +15,7 @@ export function useFacePresence(
 ): UseFacePresenceResult {
   const { intervalMs = 2500, checkPresence, onPresent, onAbsent, onError } = options;
   const [isPresent, setIsPresent] = useState(false);
+  const [count, setCount] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const wasPresent = useRef(false);
@@ -31,6 +32,7 @@ export function useFacePresence(
       if (!photo?.uri) return;
       const result = await checkPresence(photo.uri);
       setIsPresent(result.present);
+      setCount(result.count);
       if (result.present && !wasPresent.current) onPresent?.();
       if (!result.present && wasPresent.current) onAbsent?.();
       wasPresent.current = result.present;
@@ -52,8 +54,9 @@ export function useFacePresence(
   const stop = useCallback(() => {
     setIsActive(false);
     setIsPresent(false);
+    setCount(0);
     wasPresent.current = false;
   }, []);
 
-  return { isPresent, isChecking, start, stop };
+  return { isPresent, count, isChecking, start, stop };
 }

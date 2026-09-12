@@ -23,8 +23,8 @@ function resolveUrl({ endpoint, baseUrl }: VisionPresenceCheckerConfig): string 
 /**
  * Reference `checkPresence` implementation: sends the captured frame to a
  * vision-capable LLM (see apps/web/src/app/api/vision-presence/route.ts,
- * OpenAI gpt-4o-mini by default) and asks a yes/no "is a person facing the
- * camera" question. This is the most reliable option available without a
+ * OpenAI gpt-4o-mini by default) and asks it to count the people facing the
+ * camera. This is the most reliable option available without a
  * dev client, but it costs a small amount per call — see README's cost
  * section before wiring this up to run continuously at kiosk scale. Prefer
  * pairing it with a cheap client-side trigger (e.g. a hardware presence
@@ -53,7 +53,8 @@ export function createVisionPresenceChecker(
       throw new Error(`Presence check failed (${response.status}): ${detail.slice(0, 300)}`);
     }
 
-    const data = (await response.json()) as { present?: boolean };
-    return { present: Boolean(data.present) };
+    const data = (await response.json()) as { count?: number };
+    const count = typeof data.count === "number" && data.count >= 0 ? Math.floor(data.count) : 0;
+    return { count, present: count > 0 };
   };
 }
