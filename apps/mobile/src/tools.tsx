@@ -513,6 +513,83 @@ export function Tools({
   });
 
   useFrontendTool({
+    name: "suggest_appointment_slots",
+    description:
+      "Find real open appointment times to offer the customer. Use this whenever they ask what's available, " +
+      "or when the time they wanted is taken or outside opening hours — never invent an alternative time yourself. " +
+      "Respects the business's opening hours and skips anything already booked locally. Pass onlyDateISO " +
+      "(any time on that day, RFC3339) when they've named a specific day, otherwise it searches forward from now. " +
+      "Returns times already phrased for reading out loud, plus the exact startISO to pass to book_appointment.",
+    parameters: z.object({
+      onlyDateISO: z
+        .string()
+        .optional()
+        .describe("Restrict to this single day, e.g. '2026-09-17T00:00:00+05:30'. Omit to search forward."),
+      durationMinutes: z.number().optional().describe("Appointment length. Defaults to 30."),
+      maxSlots: z.number().int().min(1).max(10).optional().describe("How many options to return. Defaults to 4."),
+    }),
+    handler: async ({ onlyDateISO, durationMinutes, maxSlots }) => {
+      const { availability } = reception.business;
+      if (!availability) {
+        return {
+          slots: [],
+          reason:
+            "This business has no structured opening hours configured, so I can't compute open slots. Ask the customer for a time and confirm it against the business hours instead.",
+        };
+      }
+
+      // Real calendar events count as busy too, when the operator is signed
+      // in — otherwise the kiosk would happily double-book over them.
+      const calendarResult = await listUpcomingCalendarEvents(25);
+      const calendarBusy =
+        calendarResult.ok
+          ? calendarResult.value
+              .filter((event) => event.start && event.end)
+              .map((event) => ({ startISO: event.start!, endISO: event.end! }))
+          : [];
+
+      const slots = suggestSlots({
+        now: new Date(),
+        availability,
+        busy: [...busyFromAppointments(reception.appointments), ...calendarBusy],
+        durationMinutes: durationMinutes ?? 30,
+        maxSlots: maxSlots ?? 4,
+        onlyDateISO,
+      });
+
+      return {
+        slots,
+        calendarChecked: calendarResult.ok,
+        reason: slots.length === 0 ? "Nothing open in that window — try another day." : undefined,
+      };
+    },
+    render: ({ result }) => {
+      const data = result as { slots?: { label: string }[]; reason?: string } | undefined;
+      if (!data) {
+        return (
+          <View style={styles.gate}>
+            <Text style={styles.gateDone}>Checking what's free…</Text>
+          </View>
+        );
+      }
+      return (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Open times</Text>
+          {(data.slots ?? []).length === 0 ? (
+            <Text style={styles.rowMeta}>{data.reason ?? "Nothing open."}</Text>
+          ) : (
+            data.slots!.map((slot) => (
+              <View key={slot.label} style={styles.row}>
+                <Text style={styles.rowLabel}>{slot.label}</Text>
+              </View>
+            ))
+          )}
+        </View>
+      );
+    },
+  });
+
+  useFrontendTool({
     name: "list_calendar_events",
     description:
       "Read the operator's real upcoming Google Calendar events (not the local appointment queue — " +
