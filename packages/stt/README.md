@@ -3,10 +3,12 @@
 Push-to-talk speech-to-text for the Resse.ai kiosk app. **Expo Go compatible**
 — no custom native modules, no dev client required.
 
-> **Status:** written, not yet run inside the Expo app. Verify the
-> `expo-audio` recorder API (`useAudioRecorder`, `RecordingPresets`,
-> `AudioModule.requestRecordingPermissionsAsync`) against whatever
-> `expo-audio` version is installed at integration time.
+> **Status:** the base record → upload → transcribe path has run on-device.
+> The auto-stop watchdog (`useAudioRecorderState` metering) is written
+> against the installed `expo-audio` version's documented API but not yet
+> confirmed on real hardware — metering support/accuracy can vary by
+> platform, so verify `silenceThresholdDb` actually trips on real silence
+> before relying on it, and lean on `autoStopMaxDurationMs` as the backstop.
 
 ## Why cloud-only
 
@@ -70,11 +72,19 @@ function VoiceButton() {
 ```
 
 Pairing with presence detection (`@resse/presence`): call `startListening()`
-when presence/wake is detected instead of a press-and-hold button, and
-`stopListening()` after a short silence timeout or a fixed max duration —
-this package does not implement voice-activity-detection (VAD) itself; it
-just handles record → upload → transcribe once you decide the start/stop
-boundaries.
+when presence/wake is detected instead of a press-and-hold button. Unlike a
+press-and-hold button, a hands-free caller has no "release" event to stop
+on — so this hook auto-stops itself: once `expo-audio` metering reports
+silence (below `silenceThresholdDb`) for `autoStopSilenceMs`, or
+unconditionally after `autoStopMaxDurationMs` as a safety cap (metering
+support and reliability vary by device). This is a metering-threshold
+heuristic, not real voice-activity-detection — tune `silenceThresholdDb` if
+quiet speech gets cut off or background noise never reads as silent. A
+caller can still call `stopListening()` manually at any time (e.g. button
+release); whichever happens first wins, and `onTranscript` fires exactly
+once either way — that's the one hook point to send the transcript from, not
+`stopListening()`'s return value, since an auto-stop doesn't go through your
+own call site at all.
 
 ## API
 
@@ -84,8 +94,12 @@ boundaries.
 |---|---|---|
 | `endpoint` | `string` | Defaults to `"/api/stt"` |
 | `baseUrl` | `string` | Required if `endpoint` is relative |
-| `onTranscript` | `(text: string) => void` | Called with the transcript once ready |
+| `onTranscript` | `(text: string) => void` | Called with the transcript once ready — fires for both a manual and an auto-triggered stop, so this is the one place to hook "send this" |
 | `onError` | `(error: Error) => void` | Called on permission denial, recording, or network failure |
+| `autoStopSilenceMs` | `number` | Auto-stop after this much continuous silence. `0` disables. Default `1500` |
+| `autoStopMaxDurationMs` | `number` | Hard cap regardless of silence detection. `0` disables. Default `12000` |
+| `silenceThresholdDb` | `number` | Metering level (dBFS) below which audio counts as silence. Default `-35` |
+| `autoStopGraceMs` | `number` | Grace period before silence-based auto-stop starts counting. Default `1200` |
 
 Returns `{ isRecording, isTranscribing, startListening, stopListening }`.
 `stopListening()` also resolves with the transcript string (or `null` on

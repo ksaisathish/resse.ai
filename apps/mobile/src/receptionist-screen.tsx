@@ -20,12 +20,6 @@ import { styles } from "@/styles";
 import { useReceptionAgent } from "@/use-reception-agent";
 import { PresenceTrigger } from "@/presence-trigger";
 
-// There's no voice-activity-detection here, so once presence triggers
-// listening it auto-stops after a fixed window rather than detecting when
-// the person stops talking — same tradeoff as the old flag-gated presence
-// hookup this screen replaces.
-const PRESENCE_AUTO_STOP_MS = 6000;
-
 // Screens keep registering CopilotKit tools/context (via <Tools>) even when
 // pushed underneath another screen in the stack, since native-stack doesn't
 // unmount on blur by default — with two screens now sharing the same tool
@@ -44,18 +38,32 @@ function ReceptionistScreenContent() {
     setReception,
     busy,
     error,
+    setError,
     avatarRef,
     isRecording,
     isTranscribing,
     startListening,
-    stopListeningAndSend,
   } = useReceptionAgent();
 
+  // Auto-stop (silence detection + a hard max-duration cap) lives in
+  // useSpeechToText itself now — see packages/stt/src/useSpeechToText.ts —
+  // so this just starts listening; the hook decides when to stop and the
+  // transcript gets sent automatically via its onTranscript callback (wired
+  // in use-reception-agent.ts).
   const handlePresenceDetected = useCallback(() => {
     if (busy || isRecording || isTranscribing) return;
     void startListening();
-    setTimeout(() => void stopListeningAndSend(), PRESENCE_AUTO_STOP_MS);
-  }, [busy, isRecording, isTranscribing, startListening, stopListeningAndSend]);
+  }, [busy, isRecording, isTranscribing, startListening]);
+
+  // Every presence-check failure (bad OPENAI_API_KEY, network error, a
+  // malformed vision response) used to be silently swallowed — no onError
+  // was ever wired up, so the only visible symptom was the count staying
+  // at 0 forever with no clue why. Surfacing it through the same error
+  // banner as everything else.
+  const handlePresenceError = useCallback(
+    (presenceError: Error) => setError(presenceError.message),
+    [setError],
+  );
 
   const statusLabel = isRecording ? "Listening…" : isTranscribing || busy ? "Thinking…" : null;
 
@@ -70,7 +78,11 @@ function ReceptionistScreenContent() {
         style={StyleSheet.absoluteFillObject}
       />
 
-      <PresenceTrigger onPresent={handlePresenceDetected} onCountChange={setPersonCount} />
+      <PresenceTrigger
+        onPresent={handlePresenceDetected}
+        onCountChange={setPersonCount}
+        onError={handlePresenceError}
+      />
 
       <SafeAreaView style={styles.overlayRoot} edges={["top", "bottom"]} pointerEvents="box-none">
         <View style={styles.overlayTopBar} pointerEvents="box-none">
@@ -88,7 +100,7 @@ function ReceptionistScreenContent() {
 
         {error ? (
           <View style={[styles.gate, { marginHorizontal: 16, marginBottom: 16 }]}>
-            <Text style={styles.gateTitle}>Could not reach the agent</Text>
+            <Text style={styles.gateTitle}>Something went wrong</Text>
             <Text style={styles.gateBody}>{error}</Text>
           </View>
         ) : null}

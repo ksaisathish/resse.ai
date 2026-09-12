@@ -105,15 +105,17 @@ export function useReceptionAgent() {
     [agent, copilotkit, busy, isReady, speak],
   );
 
+  // onTranscript (not a manual "await stopListening() then send") is what
+  // actually sends — stopListening() can now be triggered either by a caller
+  // (button release) or by the hook's own silence/max-duration watchdog, and
+  // onTranscript is the one path both go through, so this is the single
+  // place a transcript turns into an agent turn regardless of which one
+  // fired.
   const { isRecording, isTranscribing, startListening, stopListening } = useSpeechToText({
     baseUrl: BACKEND_ORIGIN,
+    onTranscript: (text) => void sendText(text),
     onError: (sttError) => setError(sttError.message),
   });
-
-  const stopListeningAndSend = useCallback(async () => {
-    const transcript = await stopListening();
-    if (transcript) void sendText(transcript);
-  }, [stopListening, sendText]);
 
   useEffect(() => {
     const subscription = copilotkit.subscribe({
@@ -140,12 +142,13 @@ export function useReceptionAgent() {
     isReady,
     busy,
     error,
+    setError,
     avatarRef,
     sendText,
     isRecording,
     isTranscribing,
     startListening,
-    stopListeningAndSend,
+    stopListening,
     messages,
     conversationMessages,
     activeToolLabel,
