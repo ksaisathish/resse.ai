@@ -1,141 +1,33 @@
-"use client";
-
-import { useCallback, useState } from "react";
-import {
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
-import { GenerativeUI } from "@/components/generative-ui";
-import { AppControl } from "@/components/app-control";
-import { findIncident, incidents, workspaceContext } from "@/lib/incidents";
-import { useWorkplace } from "@/lib/use-workplace";
-import { WorkplaceFollowups } from "@/components/workplace-followups";
-
 export default function Home() {
-  const [selectedId, setSelectedId] = useState<string>(incidents[0].id);
-  const workplace = useWorkplace(selectedId);
-  const { selectedIncident: incident } = workspaceContext(
-    selectedId,
-    workplace.status?.status === "connected" ? workplace.status.tasks : [],
-  );
-  const selectIncident = useCallback((id: string) => {
-    setSelectedId(findIncident(id).id);
-  }, []);
-
-  useConfigureSuggestions(
-    {
-      suggestions: [
-        {
-          title: "Summarize this incident",
-          message:
-            "Summarize the selected incident using the page context. What needs attention?",
-        },
-        {
-          title: "Propose a follow-up",
-          message:
-            "Prepare one useful Ambiguous follow-up for the selected incident. Show me the proposal before it is saved.",
-        },
-      ],
-      available: "before-first-message",
-    },
-    [],
-  );
-
   return (
-    <>
-      <GenerativeUI />
-      <AppControl
-        selectedId={selectedId}
-        selectIncident={selectIncident}
-        workplace={workplace}
-      />
-      <main className="ck-workspace">
-        <header className="ck-workspace-header">
-          <div>
-            <p className="ck-eyebrow">Agents, everywhere · Web example</p>
-            <h1>Incident assistant</h1>
-            <p className="ck-intro">
-              Pick an incident. Ask your assistant. Review a follow-up.
-            </p>
-          </div>
-          <span className="ck-tag">Sample data</span>
-        </header>
+    <main className="ck-page">
+      <p className="ck-eyebrow">Resse.ai</p>
+      <h1>Backend runtime</h1>
+      <p className="ck-dek">
+        This Next.js app has no end-user UI of its own — the front desk lives in the Expo app
+        under <code>apps/mobile</code>. This process only hosts the agent backend it talks to.
+      </p>
 
-        <div className="ck-workspace-grid">
-          <section className="ck-panel" aria-labelledby="incident-title">
-            <div className="ck-incident-picker">
-              <label htmlFor="incident-select">Incident</label>
-              <select
-                id="incident-select"
-                value={selectedId}
-                onChange={(event) => selectIncident(event.target.value)}
-              >
-                {incidents.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.id} · {item.service}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="ck-detail">
-              <span className="ck-status-label">{incident.status}</span>
-              <h2 id="incident-title">{incident.title}</h2>
-              <p>{incident.summary}</p>
-              <details className="ck-more" key={incident.id}>
-                <summary>Details &amp; timeline</summary>
-                <dl className="ck-detail-facts">
-                  <div>
-                    <dt>Incident lead</dt>
-                    <dd>{incident.owner}</dd>
-                  </div>
-                  <div>
-                    <dt>Severity</dt>
-                    <dd>{incident.severity}</dd>
-                  </div>
-                  <div>
-                    <dt>Last update</dt>
-                    <dd>{incident.updated}</dd>
-                  </div>
-                </dl>
-                <h3>Impact</h3>
-                <p>{incident.impact}</p>
-                <h3>Timeline</h3>
-                <ol className="ck-timeline">
-                  {incident.timeline.map((event) => (
-                    <li key={event.time}>
-                      <time>{event.time} UTC</time>
-                      <div>
-                        <strong>{event.author}</strong>
-                        <p>{event.detail}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            </div>
-
-            <WorkplaceFollowups incidentId={selectedId} workplace={workplace} />
-          </section>
-
-          <section
-            className="ck-panel ck-assistant"
-            aria-labelledby="assistant-title"
-          >
-            <header className="ck-assistant-header">
-              <h2 id="assistant-title">Ask assistant</h2>
-              <p>It can read this incident and prepare follow-ups.</p>
-            </header>
-            <CopilotChat
-              className="ck-chat"
-              labels={{
-                welcomeMessageText: "What needs attention?",
-                chatInputPlaceholder: "Ask about this incident…",
-              }}
-            />
-          </section>
-        </div>
-      </main>
-    </>
+      <section style={{ marginTop: "2rem" }}>
+        <h2 style={{ fontSize: "1.05rem" }}>Routes this app serves</h2>
+        <ul style={{ marginTop: "0.75rem", lineHeight: 1.9 }}>
+          <li>
+            <code>/api/mobile-copilotkit</code> — the CopilotKit runtime the Expo app connects
+            to (see <code>apps/mobile/src/config.ts</code>).
+          </li>
+          <li>
+            <code>/api/search</code> — Exa web search, used when <code>EXA_API_KEY</code> is set.
+          </li>
+          <li>
+            <code>/api/realtime-token</code> — mints a short-lived OpenAI Realtime token for
+            voice sessions.
+          </li>
+          <li>
+            <a href="/voice">/voice</a> — a browser reference implementation of the voice
+            surface (WebRTC). The kiosk's own voice transport is still being adapted for Expo.
+          </li>
+        </ul>
+      </section>
+    </main>
   );
 }

@@ -1,12 +1,8 @@
-# React Native agent
+# Resse.ai — mobile kiosk app
 
 **OpenAI or OpenRouter + CopilotKit React Native**
 
-Build a phone-native agent that reads app state, renders native cards in chat, and waits for a tap before changing data. The included Expo app is a mobile finance copilot with local sample accounts, budgets, and expense approval. Replace the finance data and tools with your own workflow.
-
-<a href="../../assets/demos/mobile.mp4"><img src="../../assets/demos/mobile.gif" alt="React Native mobile agent demo" width="320" /></a>
-
-_Edited iOS Simulator recording: read balances, approve an expense, and cancel a second request. Changes stay in local sample data. Click the preview for the full MP4._
+The front desk itself: reads the business's visible state (hours, services, today's appointment queue), renders native cards in chat, and waits for a tap before changing any appointment's status. Sample data — a small dental office — stands in for a real business until onboarding (Exa scrape of a business URL) is wired up.
 
 This app is deliberately not an npm workspace member. React Native pins its own `react`, `react-native`, and Expo versions, and hoisting those into the root workspace can break the web app.
 
@@ -56,35 +52,41 @@ The default endpoint is `http://localhost:3100/api/mobile-copilotkit`, served by
 | Android emulator | `http://10.0.2.2:3100/api/mobile-copilotkit` |
 | Physical device | A deliberately exposed or deployed runtime URL, for example `http://<your-laptop-LAN-IP>:3100/api/mobile-copilotkit` only after starting Next.js on a LAN interface you trust |
 
-Put the override in `apps/mobile/.env`. The default `npm run dev:web` binds Next.js to loopback for the web approval demo, so a physical device will need an explicitly exposed host, a tunnel/deployment, or a separate runtime start command with the security boundary you intend.
+Put the override in `apps/mobile/.env`. The default `npm run dev:web` binds Next.js to loopback, so a physical device will need an explicitly exposed host, a tunnel/deployment, or a separate runtime start command with the security boundary you intend.
 
 ## Try the flow
 
-The [React Native walkthrough](../../dev-docs/template-walkthroughs/mobile/README.md) shows iOS Simulator evidence for startup, balances, approval, cancellation, and formatted assistant output.
+Ask:
+
+```text
+What are your hours?
+```
+
+Expected: `get_business_info` renders a business-info card.
 
 Ask:
 
 ```text
-Show my balances.
+Show today's appointments.
 ```
 
-Expected: `list_mobile_accounts` renders a native account card.
+Expected: `list_appointments` renders the queue with each appointment's status.
 
 Ask:
 
 ```text
-How am I doing on budgets?
+Check in Priya Nair.
 ```
 
-Expected: `list_mobile_budgets` renders spent/limit rows.
+Expected: `check_in_appointment` renders an approval card. Tapping **Approve** updates the local in-memory appointment status. Tapping **Cancel** changes nothing.
 
-Ask:
+Ask something that should fail, to see the guard rail:
 
 ```text
-Add a $9 lunch at Souvla to my Rewards Card.
+Mark Jordan Blake's appointment as checked in.
 ```
 
-Expected: `add_mobile_expense` renders an approval card. Tapping **Add expense** updates the local in-memory account balance and returns a local transaction ID. Tapping **Cancel** changes nothing.
+Expected: the approval card shows the appointment can't transition (it's already `completed`) and **Approve** stays disabled — this is the one built-in failure/cancellation path.
 
 ## Customize these files
 
@@ -92,40 +94,27 @@ Expected: `add_mobile_expense` renders an approval card. Tapping **Add expense**
 | --- | --- |
 | App shell | [App.tsx](App.tsx) |
 | Headless chat | [src/chat.tsx](src/chat.tsx) |
-| Finance sample state | [src/finance.ts](src/finance.ts) |
+| Reception sample state + status-transition rules | [src/reception.ts](src/reception.ts) |
 | CopilotKit tools and app context | [src/tools.tsx](src/tools.tsx) |
 | Runtime URL | [src/config.ts](src/config.ts) |
 | Mobile runtime endpoint | [../web/src/app/api/mobile-copilotkit/[[...path]]/route.ts](../web/src/app/api/mobile-copilotkit/[[...path]]/route.ts) |
-| Mobile prompt | [../../packages/agent-core/src/mobile-finance-prompt.ts](../../packages/agent-core/src/mobile-finance-prompt.ts) |
+| Mobile prompt | [../../packages/agent-core/src/reception-prompt.ts](../../packages/agent-core/src/reception-prompt.ts) |
 
-Imports come from `@copilotkit/react-native/headless` so the template avoids optional native peers from the prebuilt chat UI. `index.js` imports `react-native-get-random-values` before CopilotKit polyfills, then registers the Expo app.
+Imports come from `@copilotkit/react-native/headless` so the app avoids optional native peers from the prebuilt chat UI. `index.js` imports `react-native-get-random-values` before CopilotKit polyfills, then registers the Expo app.
 
 `metro.config.js` routes the transitive `jose` dependency through its browser export for native bundles. This is intentionally narrow: it does not stub Node built-ins or mask missing native functionality.
 
-## Make it yours
+## What's still missing
 
-Good mobile fits include field checklists, travel plans, patient intake preparation, fitness logs, inventory counts, and expense capture. Keep the pattern: app context first, native rendered result, explicit approval before a local or external write, and a visible result after the tap.
-
-## Give this to your coding agent
-
-```text
-Read the root hackathon overview, rules, sponsor guide, AGENTS.md, and
-apps/mobile/README.md. Adapt apps/mobile to our mobile workflow. Keep
-CopilotKit React Native headless APIs for app context, native tool rendering,
-and human-in-the-loop approval. Keep the runtime URL/device networking notes.
-Replace sample finance state and tools with our own app state and one complete
-approved action. Run npm ci --prefix apps/mobile, npm test --prefix apps/mobile,
-npm run typecheck --prefix apps/mobile, and the relevant root checks. Record
-OpenRouter, physical-phone, and OCR evidence separately if your submission
-depends on those paths.
-```
+- **Voice.** This app is currently text-chat only. The backend has a working browser voice reference (`apps/web/src/app/voice`, OpenAI Realtime over WebRTC), but that transport doesn't exist on Expo out of the box. Options being evaluated: `react-native-webrtc` (needs an EAS dev build), WebSocket streaming to the Realtime API, or a push-to-talk record → STT → agent turn → TTS loop. See [RESSE_IDEATION_CONTEXT.md](../../RESSE_IDEATION_CONTEXT.md).
+- **Business onboarding.** No Exa-scrape-and-confirm flow yet; `initialReception` in `src/reception.ts` is hand-written sample data.
+- **Persistence.** Appointment state lives in RN memory and resets on reload — fine for a demo, not for a kiosk that needs to survive a restart. A real datastore behind `apps/web` is the next step before this is a real product.
+- **Camera/presence detection, payments, reviews, real calendar sync.** Out of scope for now — see the ideation doc for the reasoning.
 
 ## Verify and limits
 
-Run `npm test`, `npm run typecheck`, `npm run bundle:ios`, and `npm run bundle:android` from `apps/mobile` before recording. The Expo app changes local sample state only. It does not connect to bank accounts, cards, payment services, external storage, messaging providers, or the OpenAI Realtime voice route.
-
-OpenRouter chat follows the shared root model settings. OCR, physical-device networking, and OpenAI Realtime voice are separate capabilities and need their own evidence if your submission depends on them.
+Run `npm test`, `npm run typecheck`, `npm run bundle:ios`, and `npm run bundle:android` from `apps/mobile` before recording. The app changes local sample state only. It does not connect to a calendar, payment service, or messaging provider yet.
 
 ## Upstream source
 
-Inspired by CopilotKit PR [#5430](https://github.com/CopilotKit/CopilotKit/pull/5430), `examples/showcases/react-native-personal-finance` at commit `6815a3eed0d80570cc17c121d952b94d5543d0a7`. This app adapts the concept into the starter kit's existing Expo app and shared web runtime. It does not copy the standalone bare native project, screenshots, video, Git LFS media, or credentials.
+This app started from CopilotKit's `agents-everywhere-starter-kit` React Native template (itself inspired by CopilotKit PR [#5430](https://github.com/CopilotKit/CopilotKit/pull/5430)), which shipped a personal-finance sample domain. Resse.ai replaced that domain with the front-desk/appointment domain above; the app shell, headless chat pattern, and CopilotKit wiring are otherwise unchanged.

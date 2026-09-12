@@ -4,13 +4,13 @@ import {
   createCopilotHonoHandler,
 } from "@copilotkit/runtime/v2";
 import { makeAgent } from "agent-core";
-import { MOBILE_FINANCE_PROMPT } from "agent-core/mobile-finance-prompt";
+import { RECEPTION_PROMPT } from "agent-core/reception-prompt";
 
 const runtime = new CopilotRuntime({
   agents: () => ({
     default: makeAgent(randomUUID(), {
       workplace: false,
-      prompt: MOBILE_FINANCE_PROMPT,
+      prompt: RECEPTION_PROMPT,
     }),
   }),
 });

@@ -7,49 +7,43 @@ import {
 } from "@copilotkit/react-native/headless";
 import { z } from "zod";
 import {
-  addExpense,
-  formatMoney,
-  summarizeSpending,
-  validateExpenseInput,
-  type CurrencyCode,
-  type FinanceSnapshot,
-} from "@/finance";
+  applyStatusChange,
+  validateStatusChange,
+  type ReceptionSnapshot,
+} from "@/reception";
 import { styles } from "@/styles";
 
-const currencySchema = z.enum(["USD", "EUR"]);
+const statusSchema = z.enum(["checked-in", "completed", "no-show", "cancelled"]);
 
-function accountName(snapshot: FinanceSnapshot, id: string) {
-  return snapshot.accounts.find((account) => account.id === id)?.name ?? id;
+function appointmentLabel(snapshot: ReceptionSnapshot, id: string) {
+  const appointment = snapshot.appointments.find((item) => item.id === id);
+  return appointment ? `${appointment.customerName} (${appointment.time})` : id;
 }
 
 export function Tools({
-  finance,
-  setFinance,
+  reception,
+  setReception,
 }: {
-  finance: FinanceSnapshot;
-  setFinance: Dispatch<SetStateAction<FinanceSnapshot>>;
+  reception: ReceptionSnapshot;
+  setReception: Dispatch<SetStateAction<ReceptionSnapshot>>;
 }) {
   useAgentContext({
     description:
-      "The visible React Native finance app state. This sample data is local to the phone template. Use mobile finance tools for answers; use add_mobile_expense for writes, which requires the user's approval tap before local state changes.",
+      "The visible React Native front-desk app state. This sample data is local to the phone/kiosk template. Use reception tools for reads; use check_in_appointment for any status change, which requires the user's approval tap before local state changes.",
     value: {
       surface: "react-native",
-      accounts: finance.accounts,
-      budgets: finance.budgets,
-      recentTransactions: finance.transactions.slice(0, 5),
+      business: reception.business,
+      appointments: reception.appointments,
     },
   });
 
   useHumanInTheLoop({
-    name: "add_mobile_expense",
+    name: "check_in_appointment",
     description:
-      "Propose a new local expense in the React Native finance app. The user must approve the native card before the expense changes the local account balance and budget.",
+      "Propose a status change for a local appointment (check the customer in, mark a no-show, cancel, or complete). The user must approve the native card before the appointment status changes.",
     parameters: z.object({
-      accountId: z.string().describe("The target account id from list_mobile_accounts."),
-      merchant: z.string().describe("Merchant or payee name."),
-      category: z.string().describe("Budget category for this expense."),
-      amount: z.number().positive().describe("Expense amount in the given currency."),
-      currency: currencySchema.describe("Currency code matching the account."),
+      appointmentId: z.string().describe("The target appointment id from list_appointments."),
+      status: statusSchema.describe("The requested new status."),
     }),
     render: ({ args, respond, result }) => {
       if (!respond) {
@@ -59,27 +53,15 @@ export function Tools({
           </View>
         );
       }
-      const validated = validateExpenseInput(finance, args);
-      const amount =
-        typeof args.amount === "number" &&
-        Number.isFinite(args.amount) &&
-        (args.currency === "USD" || args.currency === "EUR")
-          ? formatMoney(args.amount, args.currency as CurrencyCode)
-          : "Pending amount";
+      const validated = validateStatusChange(reception, args);
       return (
         <View style={styles.gate}>
-          <Text style={styles.gateTitle}>Approve local expense</Text>
+          <Text style={styles.gateTitle}>Approve status change</Text>
           <Text style={styles.gateBody}>
-            {amount} at {args.merchant ?? "a merchant"} from{" "}
-            {accountName(finance, String(args.accountId ?? ""))}.
+            {appointmentLabel(reception, String(args.appointmentId ?? ""))} →{" "}
+            {args.status ?? "pending"}
           </Text>
-          <Text style={styles.gateBody}>
-            Category: {args.category ?? "Uncategorized"}. This changes only the sample
-            phone state.
-          </Text>
-          {!validated.ok ? (
-            <Text style={styles.gateBody}>{validated.reason}</Text>
-          ) : null}
+          {!validated.ok ? <Text style={styles.gateBody}>{validated.reason}</Text> : null}
           <View style={styles.gateRow}>
             <Pressable
               style={[
@@ -89,25 +71,19 @@ export function Tools({
               ]}
               disabled={!validated.ok}
               onPress={() => {
-                const current = validateExpenseInput(finance, args);
+                const current = validateStatusChange(reception, args);
                 if (!current.ok) {
                   void respond(current.reason);
                   return;
                 }
-                const result = addExpense(
-                  finance,
-                  current.value,
-                );
-                if (!result.transaction) {
+                const result = applyStatusChange(reception, current.value);
+                if (!result.appointment) {
                   void respond(result.error);
                   return;
                 }
-                setFinance(result.snapshot);
+                setReception(result.snapshot);
                 void respond(
-                  `Approved and saved local expense ${result.transaction.id}. ${accountName(
-                    result.snapshot,
-                    current.value.accountId,
-                  )} is now ${formatMoney(result.balance, current.value.currency)}.`,
+                  `Approved. ${result.appointment.customerName}'s appointment is now "${result.appointment.status}".`,
                 );
               }}
             >
@@ -117,14 +93,14 @@ export function Tools({
                   !validated.ok ? styles.btnDisabledText : null,
                 ]}
               >
-                Add expense
+                Approve
               </Text>
             </Pressable>
             <Pressable
               style={styles.btn}
               onPress={() =>
                 void respond(
-                  "The user declined the expense. Nothing changed in the local finance app.",
+                  "The user declined the change. Nothing changed in the local appointment queue.",
                 )
               }
             >
@@ -137,93 +113,46 @@ export function Tools({
   });
 
   useFrontendTool({
-    name: "list_mobile_accounts",
-    description:
-      "Read the local finance accounts and balances visible in the React Native app.",
+    name: "get_business_info",
+    description: "Read the business hours, services, and phone number shown in the app.",
     parameters: z.object({}),
-    handler: async () => ({ accounts: finance.accounts }),
+    handler: async () => ({ business: reception.business }),
     render: () => (
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Accounts</Text>
-        {finance.accounts.map((account) => (
-          <View key={account.id} style={styles.row}>
-            <Text style={styles.rowLabel}>{account.name}</Text>
-            <Text style={styles.rowValue}>{formatMoney(account.balance, account.currency)}</Text>
-          </View>
-        ))}
+        <Text style={styles.cardTitle}>{reception.business.name}</Text>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Hours</Text>
+          <Text style={styles.rowValue}>{reception.business.hours}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Phone</Text>
+          <Text style={styles.rowValue}>{reception.business.phone}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Services</Text>
+          <Text style={styles.rowValue}>{reception.business.services.join(", ")}</Text>
+        </View>
       </View>
     ),
   });
 
   useFrontendTool({
-    name: "list_mobile_budgets",
-    description: "Read local monthly budgets with spent and remaining amounts.",
+    name: "list_appointments",
+    description: "Read today's local appointment queue, most recent status first.",
     parameters: z.object({}),
-    handler: async () => ({ budgets: finance.budgets }),
+    handler: async () => ({ appointments: reception.appointments }),
     render: () => (
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Budgets</Text>
-        {finance.budgets.map((budget) => {
-          const pct = Math.min(100, Math.round((budget.spent / budget.limit) * 100));
-          return (
-            <View key={budget.id} style={styles.budgetRow}>
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>{budget.category}</Text>
-                <Text style={styles.rowValue}>
-                  {formatMoney(budget.spent, budget.currency)} /{" "}
-                  {formatMoney(budget.limit, budget.currency)}
-                </Text>
-              </View>
-              <View style={styles.meter}>
-                <View style={[styles.meterFill, { width: `${pct}%` }]} />
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    ),
-  });
-
-  useFrontendTool({
-    name: "summarize_mobile_spending",
-    description:
-      "Summarize local spending by category from the React Native app transaction list.",
-    parameters: z.object({}),
-    handler: async () => ({ categories: summarizeSpending(finance) }),
-    render: () => (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Spending by Category</Text>
-        {summarizeSpending(finance).map((category) => (
-          <View key={`${category.category}:${category.currency}`} style={styles.row}>
-            <Text style={styles.rowLabel}>{category.category}</Text>
-            <Text style={styles.rowValue}>
-              {formatMoney(category.spent, category.currency)}
-            </Text>
-          </View>
-        ))}
-      </View>
-    ),
-  });
-
-  useFrontendTool({
-    name: "list_mobile_activity",
-    description: "Read the most recent local transactions in the React Native app.",
-    parameters: z.object({}),
-    handler: async () => ({ transactions: finance.transactions.slice(0, 8) }),
-    render: () => (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Recent Activity</Text>
-        {finance.transactions.slice(0, 5).map((transaction) => (
-          <View key={transaction.id} style={styles.row}>
+        <Text style={styles.cardTitle}>Today's queue</Text>
+        {reception.appointments.map((appointment) => (
+          <View key={appointment.id} style={styles.row}>
             <View style={styles.rowStack}>
-              <Text style={styles.rowLabel}>{transaction.merchant}</Text>
+              <Text style={styles.rowLabel}>{appointment.customerName}</Text>
               <Text style={styles.rowMeta}>
-                {transaction.category} · {transaction.date}
+                {appointment.service} · {appointment.time}
               </Text>
             </View>
-            <Text style={styles.rowValue}>
-              {formatMoney(transaction.amount, transaction.currency)}
-            </Text>
+            <Text style={styles.rowValue}>{appointment.status}</Text>
           </View>
         ))}
       </View>

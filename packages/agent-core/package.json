@@ -7,7 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./shared": "./src/shared.ts",
-    "./mobile-finance-prompt": "./src/mobile-finance-prompt.ts"
+    "./reception-prompt": "./src/reception-prompt.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -32,7 +32,7 @@ import {
 } from "@copilotkit/react-native/headless";
 import { Tools } from "@/tools";
 import { styles } from "@/styles";
-import { formatMoney, initialFinance } from "@/finance";
+import { initialReception, upcomingAppointments } from "@/reception";
 import { createUserMessageId } from "@/message-id";
 import { AssistantMarkdown } from "@/assistant-markdown";
 
@@ -41,7 +41,7 @@ export function ChatScreen() {
   const { agent, isReady } = useAgent({ agentId: "default" });
   const { copilotkit } = useCopilotKit();
   const renderToolCall = useRenderToolCall();
-  const [finance, setFinance] = useState(initialFinance);
+  const [reception, setReception] = useState(initialReception);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -101,20 +101,23 @@ export function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <Tools finance={finance} setFinance={setFinance} />
+      <Tools reception={reception} setReception={setReception} />
 
       <View style={styles.header}>
-        <Text style={styles.eyebrow}>Template 3 · React Native</Text>
-        <Text style={styles.title}>Personal finance copilot</Text>
+        <Text style={styles.eyebrow}>Resse.ai · Front desk</Text>
+        <Text style={styles.title}>{reception.business.name}</Text>
         <View style={styles.snapshot}>
-          {finance.accounts.map((account) => (
-            <View key={account.id} style={styles.pill}>
-              <Text style={styles.pillLabel}>{account.name}</Text>
-              <Text style={styles.pillValue}>
-                {formatMoney(account.balance, account.currency)}
-              </Text>
-            </View>
-          ))}
+          <View style={styles.pill}>
+            <Text style={styles.pillLabel}>Hours</Text>
+            <Text style={styles.pillValue}>{reception.business.hours}</Text>
+          </View>
+          <View style={styles.pill}>
+            <Text style={styles.pillLabel}>Upcoming</Text>
+            <Text style={styles.pillValue}>
+              {upcomingAppointments(reception).length} appointment
+              {upcomingAppointments(reception).length === 1 ? "" : "s"}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -129,9 +132,9 @@ export function ChatScreen() {
         onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            Try "Show my balances", "How am I doing on budgets?", or "Add a $9
-            lunch on my Rewards Card." Reads render native cards. Writes wait
-            for your approval tap before changing local sample data.
+            Try "What are your hours?", "Show today's appointments", or "Check
+            in Priya Nair." Reads render native cards. Status changes wait for
+            your approval tap before changing local sample data.
           </Text>
         }
         renderItem={({ item: message }) => {

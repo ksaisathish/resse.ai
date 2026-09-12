@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import { Providers } from "@/components/providers";
-import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Incident assistant — Agents, Everywhere",
-  description: "Pick an incident, ask your assistant, and add a follow-up.",
+  title: "Resse.ai — backend runtime",
+  description: "The agent backend the Resse.ai Expo kiosk app connects to.",
 };
 
 export default function RootLayout({
@@ -21,9 +19,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>
-        <Providers>{children}</Providers>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

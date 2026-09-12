@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Agents Everywhere",
-    "slug": "agents-everywhere",
+    "name": "Resse.ai",
+    "slug": "resse-ai",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": { "supportsTablet": true, "bundleIdentifier": "ai.copilotkit.agentseverywhere" },
-    "android": { "package": "ai.copilotkit.agentseverywhere" }
+    "ios": { "supportsTablet": true, "bundleIdentifier": "ai.resse.app" },
+    "android": { "package": "ai.resse.app" }
   }
 }
