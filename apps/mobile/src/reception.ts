@@ -55,6 +55,13 @@ export type BusinessInfo = {
   address?: string;
   website?: string;
   description?: string;
+  /** UPI ID (VPA) that receives booking deposits, e.g. "business@okhdfcbank".
+   * Set manually during org setup — not something a website scrape can find.
+   * When unset, book_appointment skips the payment QR step entirely. */
+  upiId?: string;
+  /** Default deposit amount (INR) suggested when booking a new appointment.
+   * The agent can still propose a different amount per booking. */
+  bookingDepositAmount?: number;
 };
 
 export type ReceptionSnapshot = {
@@ -100,6 +107,8 @@ export const initialReception: ReceptionSnapshot = {
     phone: "+15550190020",
     email: "frontdesk@riversidedental.example",
     address: "142 Riverside Ave, Springfield",
+    upiId: "riversidedental@okhdfcbank",
+    bookingDepositAmount: 200,
   },
   clients: demoClients,
   appointments: [

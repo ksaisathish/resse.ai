@@ -11,6 +11,8 @@ const KNOWN_LABELS: Record<string, string> = {
   find_client: "Looking up client…",
   call_number: "Opening dialer…",
   message_number: "Opening message composer…",
+  book_appointment: "Preparing booking…",
+  list_calendar_events: "Checking Google Calendar…",
 };
 
 export function labelForToolName(name: string, _args?: Record<string, unknown>): string {

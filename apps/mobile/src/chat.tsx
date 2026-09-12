@@ -96,6 +96,8 @@ export function ChatScreen() {
           address: org.address,
           website: org.website,
           description: org.description,
+          upiId: org.upiId,
+          bookingDepositAmount: org.bookingDepositAmount,
         },
       }));
     });

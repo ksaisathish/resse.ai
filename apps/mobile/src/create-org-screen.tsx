@@ -130,6 +130,34 @@ export function CreateOrgScreen({ navigation }: Props) {
               using them.
             </Text>
 
+            <Text style={styles.brandTagline}>
+              Optional — to collect a deposit via UPI QR when booking appointments (this can't be
+              scraped from a website, so enter it manually):
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={scraped?.upiId ?? ""}
+              onChangeText={(value) =>
+                setScraped((current) => (current ? { ...current, upiId: value } : current))
+              }
+              placeholder="UPI ID, e.g. business@okhdfcbank"
+              placeholderTextColor="#6e6779"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TextInput
+              style={styles.input}
+              value={scraped?.bookingDepositAmount ? String(scraped.bookingDepositAmount) : ""}
+              onChangeText={(value) =>
+                setScraped((current) =>
+                  current ? { ...current, bookingDepositAmount: Number(value) || undefined } : current,
+                )
+              }
+              placeholder="Default deposit amount, e.g. 200"
+              placeholderTextColor="#6e6779"
+              keyboardType="numeric"
+            />
+
             <Pressable
               style={[styles.btn, styles.btnPrimary, styles.btnBlock]}
               disabled={status === "saving"}
