@@ -13,6 +13,7 @@ import { useSpeechToText } from "@resse/stt";
 import { deriveActiveToolLabel } from "@resse/tool-status-banner";
 import { initialReception, type ReceptionSnapshot } from "@/reception";
 import { createUserMessageId } from "@/message-id";
+import { toSpeechText } from "@/speech-text";
 import { BACKEND_ORIGIN } from "@/config";
 import { loadReceptionSnapshot, saveReceptionSnapshot } from "@/reception-store";
 import { loadSettings, type TtsMode } from "@/settings-store";
@@ -109,7 +110,10 @@ export function useReceptionAgent(options: ReceptionAgentOptions = {}) {
           lastSpokenMessageId.current !== latestAssistantMessage.id
         ) {
           lastSpokenMessageId.current = latestAssistantMessage.id;
-          void speak(replyText);
+          // Never hand raw markdown to a speech engine — it reads the
+          // decoration out loud ("asterisk asterisk open"). See
+          // speech-text.ts.
+          void speak(toSpeechText(replyText));
         }
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
