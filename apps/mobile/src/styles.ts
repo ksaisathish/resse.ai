@@ -121,6 +121,36 @@ export const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.45 },
   btnDisabledText: { color: C.muted },
 
+  centerScreen: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    gap: 8,
+  },
+  brandTitle: { color: C.text, fontSize: 30, fontWeight: "800" },
+  brandTagline: { color: C.muted, fontSize: 14, textAlign: "center" },
+
+  errorText: { color: C.danger, fontSize: 13, textAlign: "center", marginTop: 4 },
+
+  profileCard: {
+    width: "100%",
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    gap: 4,
+    marginTop: 24,
+  },
+  avatar: { width: 64, height: 64, borderRadius: 32, marginBottom: 8, backgroundColor: C.border },
+  profileName: { color: C.text, fontSize: 18, fontWeight: "700" },
+  profileEmail: { color: C.muted, fontSize: 13 },
+
+  btnBlock: { width: "100%", alignItems: "center" },
+  btnLink: { color: C.muted, fontSize: 13, marginTop: 16 },
+
   composer: {
     flexDirection: "row",
     gap: 8,

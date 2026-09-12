@@ -167,10 +167,39 @@ again — e.g. sub-brand, agent persona name, etc.):
 ## Next steps
 
 1. Spike the voice transport on Expo (the one unresolved risk above).
-2. Strip `apps/channel`, repurpose `apps/web` as the backend, gut the
-   finance-specific parts of `apps/mobile`.
-3. Pick the demo spine (one flow) and build outward from there: onboarding
+2. ~~Strip `apps/channel`, repurpose `apps/web` as the backend, gut the
+   finance-specific parts of `apps/mobile`.~~ Done.
+3. ~~Pick the demo spine (one flow) and build outward from there: onboarding
    (Exa scrape + confirm) → appointment data model → greet/check-in/
-   reschedule → visible result → one failure/cancellation path.
+   reschedule → visible result → one failure/cancellation path.~~ The
+   appointment flow (minus Exa onboarding) is built and verified live:
+   business info, appointment queue, check-in/no-show/cancel with an
+   approval card, and a working reject case (re-checking-in a completed
+   visit).
 4. Decide and stand up the persistent datastore for appointments before
-   wiring the agent tools that touch it.
+   wiring the agent tools that touch it. Now more urgent: sign-in exists,
+   but there is no multi-tenant data model yet — every account currently
+   sees the same shared sample business.
+5. **Auth/navigation shell added:** Splash → Google sign-in (PKCE, requests
+   Calendar scope) → Dashboard → FrontDesk (the existing chat flow). See
+   `apps/mobile/README.md#sign-in-with-google` for Google Cloud Console
+   setup. Untested against a real Google client so far (no credentials in
+   this dev environment).
+
+   Chose the redirect-bridge approach over an EAS dev client, since the app
+   is still being tested through plain Expo Go (no local Android/iOS build
+   set up yet): a "Web application" Google OAuth client points at a new
+   backend route, `apps/web/.../api/auth/google/callback`, which 302s the
+   phone's browser to the app's own `exp://` link (built with
+   `Linking.createURL`, which Expo Go — unlike an arbitrary https URL or
+   custom scheme — actually owns). A `Linking` listener in
+   `use-google-auth.ts` catches that and finishes the code exchange. This
+   is more moving parts than a native redirect (the LAN IP must stay
+   stable, there's a real server hop in the middle), but needs no native
+   build. If a local Android/iOS dev client becomes available later
+   (`npx expo run:android`), switching the Google client to a native
+   "Android"/"iOS" type with a real SHA-1 and pointing `redirectUri`
+   straight at the app's own scheme would be the more robust path — revisit
+   then.
+6. Calendar scope is requested at sign-in, but nothing calls the Calendar
+   API yet — that's still a separate, unbuilt step.

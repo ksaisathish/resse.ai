@@ -9,8 +9,16 @@
 import { CopilotKitProvider } from "@copilotkit/react-native/headless";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ChatScreen } from "@/chat";
+import { SplashScreen } from "@/splash-screen";
+import { LoginScreen } from "@/login-screen";
+import { DashboardScreen } from "@/dashboard-screen";
 import { RUNTIME_URL } from "@/config";
+import type { RootStackParamList } from "@/navigation";
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
@@ -19,7 +27,14 @@ export default function App() {
       {/* Points at the same runtime the web surface uses. On a device,
           localhost is the DEVICE — see src/config.ts. */}
       <CopilotKitProvider runtimeUrl={RUNTIME_URL}>
-        <ChatScreen />
+        <NavigationContainer>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Splash" component={SplashScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="FrontDesk" component={ChatScreen} options={{ headerShown: true, title: "Front desk" }} />
+          </Stack.Navigator>
+        </NavigationContainer>
       </CopilotKitProvider>
     </SafeAreaProvider>
   );

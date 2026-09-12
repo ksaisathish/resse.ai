@@ -2,11 +2,21 @@
   "expo": {
     "name": "Resse.ai",
     "slug": "resse-ai",
+    "scheme": "resseai",
     "version": "0.1.0",
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": { "supportsTablet": true, "bundleIdentifier": "ai.resse.app" },
-    "android": { "package": "ai.resse.app" }
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.resse.app"
+    },
+    "android": {
+      "package": "ai.resse.app"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-secure-store"
+    ]
   }
 }

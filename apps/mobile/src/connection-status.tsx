@@ -7,12 +7,10 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { RUNTIME_URL } from "@/config";
+import { BACKEND_ORIGIN } from "@/config";
 import { styles } from "@/styles";
 
 type Status = "checking" | "connected" | "unreachable";
-
-const BACKEND_ORIGIN = RUNTIME_URL.replace(/\/api\/.*$/, "");
 
 export function ConnectionStatus() {
   const [status, setStatus] = useState<Status>("checking");
