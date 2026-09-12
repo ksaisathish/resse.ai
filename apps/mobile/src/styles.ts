@@ -139,6 +139,17 @@ export const styles = StyleSheet.create({
   rowLabel: { color: C.text, fontSize: 14, flexShrink: 1 },
   rowMeta: { color: C.muted, fontSize: 12, marginTop: 2 },
   rowValue: { color: C.text, fontSize: 14, fontWeight: "700" },
+  rowDivider: { borderTopWidth: 1, borderTopColor: C.border },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
+  chip: {
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: C.ground,
+  },
+  chipText: { color: C.text, fontSize: 12 },
   budgetRow: { marginBottom: 8 },
   meter: {
     height: 6,
