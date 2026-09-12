@@ -226,6 +226,11 @@ function ReceptionistScreenContent() {
         onAbsent={handleAbsent}
         onCountChange={setPersonCount}
         onError={handlePresenceError}
+        // Nothing useful can come of a presence check mid-turn or while an
+        // approval card is waiting on a tap: the answer can't change what
+        // happens next, and each check re-renders the screen underneath
+        // whoever is trying to read or tap it.
+        paused={isBusyTurn || pendingToolCalls.length > 0}
       />
 
       <SafeAreaView style={styles.overlayRoot} edges={["top", "bottom"]} pointerEvents="box-none">

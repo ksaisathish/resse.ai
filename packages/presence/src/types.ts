@@ -13,6 +13,11 @@ export type PresenceChecker = (photoUri: string) => Promise<PresenceCheckResult>
 export interface UseFacePresenceOptions {
   /** How often to capture a frame while active, in ms. Defaults to 2500. */
   intervalMs?: number;
+  /** Temporarily suspends capture without resetting what's already been
+   * detected (unlike stop()). Use it while the surface is mid-interaction —
+   * someone is talking to it, or is being asked to approve something — when
+   * another capture can only cost battery and churn state under them. */
+  paused?: boolean;
   /** Required — see README for the built-in `createVisionPresenceChecker` or write your own. */
   checkPresence: PresenceChecker;
   onPresent?: () => void;

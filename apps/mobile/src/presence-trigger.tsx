@@ -36,6 +36,7 @@ export function PresenceTrigger({
   onCountChange,
   onError,
   intervalMs = 4000,
+  paused = false,
   style,
 }: {
   onPresent: () => void;
@@ -53,6 +54,10 @@ export function PresenceTrigger({
    * to your screen's error display. */
   onError?: (error: Error) => void;
   intervalMs?: number;
+  /** Suspends capture while the screen is mid-interaction (someone is
+   * talking to it, or an approval card is waiting on a tap) — a capture
+   * then can only burn battery and re-render the UI under the person. */
+  paused?: boolean;
   /** Overrides the default bottom-right video-call-style preview position/size. */
   style?: StyleProp<ViewStyle>;
 }) {
@@ -64,6 +69,7 @@ export function PresenceTrigger({
   const presence = useFacePresence(cameraRef, {
     checkPresence,
     intervalMs,
+    paused,
     onPresent,
     onAbsent,
     onError,

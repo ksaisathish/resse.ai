@@ -13,7 +13,7 @@ export function useFacePresence(
   cameraRef: React.RefObject<CameraView | null>,
   options: UseFacePresenceOptions
 ): UseFacePresenceResult {
-  const { intervalMs = 2500, checkPresence, onPresent, onAbsent, onError } = options;
+  const { intervalMs = 2500, paused = false, checkPresence, onPresent, onAbsent, onError } = options;
   const [isPresent, setIsPresent] = useState(false);
   const [count, setCount] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
@@ -59,11 +59,11 @@ export function useFacePresence(
   }, [cameraRef]);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || paused) return;
     const id = setInterval(() => void runCheck(), intervalMs);
     void runCheck();
     return () => clearInterval(id);
-  }, [isActive, intervalMs, runCheck]);
+  }, [isActive, paused, intervalMs, runCheck]);
 
   const start = useCallback(() => setIsActive(true), []);
   const stop = useCallback(() => {

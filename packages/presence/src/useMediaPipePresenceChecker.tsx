@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 // See createVisionPresenceChecker.ts for why this is /legacy: SDK 54's
 // expo-file-system root export dropped readAsStringAsync/EncodingType.
@@ -10,6 +10,13 @@ interface PendingCheck {
   resolve: (result: PresenceCheckResult) => void;
   reject: (error: Error) => void;
 }
+
+// Module constants, not inline literals: a new object identity for `source`
+// makes react-native-webview reload the document, which here means
+// re-downloading and re-initializing the whole MediaPipe runtime.
+const MEDIAPIPE_SOURCE = { html: MEDIAPIPE_FACE_HTML } as const;
+const ORIGIN_WHITELIST = ["*"];
+const HIDDEN_WEBVIEW_STYLE = { width: 1, height: 1, opacity: 0 } as const;
 
 export interface UseMediaPipePresenceCheckerResult {
   /** Pass this straight to useFacePresence's `checkPresence` option. */
@@ -83,16 +90,28 @@ export function useMediaPipePresenceChecker(): UseMediaPipePresenceCheckerResult
     [isReady],
   );
 
-  const element = (
-    <WebView
-      ref={webviewRef}
-      source={{ html: MEDIAPIPE_FACE_HTML }}
-      onMessage={handleMessage}
-      originWhitelist={["*"]}
-      javaScriptEnabled
-      domStorageEnabled
-      style={{ width: 1, height: 1, opacity: 0 }}
-    />
+  // Memoized as a whole, with `source` and `style` hoisted to module
+  // constants. react-native-webview treats a new `source` object as a new
+  // document and reloads the page — so rebuilding this inline on every
+  // render of the host screen made the WebView tear down and re-fetch the
+  // MediaPipe WASM bundle and model continuously. That showed up as the
+  // kiosk flickering, `isReady` flapping back to false mid-conversation,
+  // and presence checks rejecting with "detector is still loading".
+  const element = useMemo(
+    () => (
+      <WebView
+        ref={webviewRef}
+        source={MEDIAPIPE_SOURCE}
+        onMessage={handleMessage}
+        originWhitelist={ORIGIN_WHITELIST}
+        javaScriptEnabled
+        domStorageEnabled
+        // A zero-size WebView is skipped/suspended on some Android builds,
+        // so it stays 1x1 and fully transparent rather than `display: none`.
+        style={HIDDEN_WEBVIEW_STYLE}
+      />
+    ),
+    [handleMessage],
   );
 
   return { checkPresence, element, isReady };
