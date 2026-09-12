@@ -4,9 +4,13 @@
 
 Someone walks up, the kiosk notices them, listens, answers out loud, and books them in. No app to install, no "press 1 for reception", no website form. Point it at a business's URL and it's running in about a minute.
 
-![The Resse.ai kiosk mid-conversation on a tablet: video avatar, a Listening badge, and live captions of the exchange](docs/images/kiosk-in-conversation.jpeg)
+[![The Resse.ai kiosk mid-conversation on a tablet: video avatar, a Listening badge, and live captions of the exchange](docs/images/kiosk-in-conversation.jpeg)](https://youtu.be/4gRRLQCs7vg)
 
-**[See the project page →](https://ksaisathish.github.io/resse.ai/)** · Built for AI Tinkerers' **Agents, Everywhere** hackathon (Sept 12–13, 2026), forked from the [CopilotKit starter kit](https://github.com/CopilotKit/agents-everywhere-starter-kit).
+**[Watch the demo](https://youtu.be/4gRRLQCs7vg)** — *Resse.ai | AI Receptionist Kiosk for Real-World Front Desks*
+
+[Project page](https://ksaisathish.github.io/resse.ai/) · [Post on X](https://x.com/astroboy735/status/2098725119317401611) · [Post on LinkedIn](https://lnkd.in/p/g8XBXAbE)
+
+Built for AI Tinkerers' **Agents, Everywhere** hackathon (Sept 12–13, 2026), forked from the [CopilotKit starter kit](https://github.com/CopilotKit/agents-everywhere-starter-kit).
 
 A real exchange from the tablet above — it declined to invent a service the clinic doesn't offer, and proposed a slot that was actually free:
 
@@ -136,7 +140,7 @@ Onboarding is pasting a URL: [Exa](https://exa.ai) fetches the site and a cheap 
 
 Working end to end: onboarding by URL scrape, hands-free voice conversation with follow-up turns, on-device presence, slot suggestions, booking with Google Calendar write and UPI QR, approval-gated check-ins, and the admin surface.
 
-Known gaps, all deliberate for a two-day build: no Google token refresh (~1h sessions), no payment-gateway verification, no reschedule/cancel tool, no server-side database, and reviews collection isn't built.
+Known gaps, all deliberate at this scope: no Google token refresh (~1h sessions), no payment-gateway verification, no reschedule/cancel tool, no server-side database, and reviews collection isn't built.
 
 ## Verify
 
@@ -151,7 +155,11 @@ cd apps/mobile && npm test && npm run typecheck
 
 Balaji Anbalagan and Saisathish Karthikeyan, over four hours at AI Tinkerers' *Agents, Everywhere* hackathon.
 
-The project page in [docs/](docs/) is served by GitHub Pages — enable it under **Settings → Pages → Source: `main` / `/docs`**.
+- Demo video: [Resse.ai | AI Receptionist Kiosk for Real-World Front Desks](https://youtu.be/4gRRLQCs7vg)
+- Write-ups: [X](https://x.com/astroboy735/status/2098725119317401611) · [LinkedIn](https://lnkd.in/p/g8XBXAbE)
+- Project page: [ksaisathish.github.io/resse.ai](https://ksaisathish.github.io/resse.ai/)
+
+That page is served from [docs/](docs/) by GitHub Pages — enable it under **Settings → Pages → Source: `main` / `/docs`**.
 
 ## Reference docs from the starter kit
 

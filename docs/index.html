@@ -7,7 +7,12 @@
 <meta name="description" content="An AI receptionist that runs on an old tablet mounted at a small business front desk. It notices you, listens, answers out loud, and books you in." />
 <meta property="og:title" content="Resse.ai — the front desk that answers itself" />
 <meta property="og:description" content="An AI receptionist running on a tablet at a real front desk. Notices you, listens, answers out loud, books you in." />
-<meta property="og:image" content="images/kiosk-in-conversation.jpeg" />
+<!-- Absolute, because X/LinkedIn crawlers won't resolve a relative og:image
+     and the card falls back to a blank preview. -->
+<meta property="og:image" content="https://ksaisathish.github.io/resse.ai/images/kiosk-in-conversation.jpeg" />
+<meta property="og:url" content="https://ksaisathish.github.io/resse.ai/" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
 <meta name="theme-color" content="#0E1518" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -163,6 +168,19 @@
     padding: 0.85rem 1.6rem; border-radius: 8px;
   }
   .cta:hover { background: #3FD7A3; }
+  .cta.ghost { background: transparent; color: var(--paper); border: 1px solid var(--line); }
+  .cta.ghost:hover { background: var(--slate); border-color: var(--mist); }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+  .actions .cta { margin-top: 0; }
+
+  /* Hero actions sit tighter to the chip than a section CTA would. */
+  .hero .actions { margin-top: 2rem; }
+  .hero .chip { margin-top: 0; }
+
+  .elsewhere { margin-top: 1.75rem; display: flex; flex-wrap: wrap; gap: 1.25rem; }
+  .elsewhere a { color: var(--mist); }
+  .elsewhere a:hover { color: var(--paper); }
 
   footer { padding-block: 4rem 5rem; color: var(--mist); font-size: 0.95rem; }
   footer a { color: var(--paper); }
@@ -179,7 +197,10 @@
       <p class="wordmark">Resse.ai</p>
       <h1>The front desk that answers itself.</h1>
       <p>An old tablet, mounted where customers walk in. It notices someone is there, listens, answers out loud, and books them in — then waits for the next person.</p>
-      <span class="chip"><span class="dot" aria-hidden="true"></span> Listening…</span>
+      <div class="actions">
+        <a class="cta" href="https://youtu.be/4gRRLQCs7vg">Watch the demo</a>
+        <span class="chip"><span class="dot" aria-hidden="true"></span> Listening…</span>
+      </div>
     </div>
   </div>
 </header>
@@ -288,7 +309,10 @@
       </ul>
     </div>
 
-    <a class="cta" href="https://github.com/ksaisathish/resse.ai">Read the code on GitHub</a>
+    <div class="actions" style="margin-top: 2rem;">
+      <a class="cta" href="https://github.com/ksaisathish/resse.ai">Read the code on GitHub</a>
+      <a class="cta ghost" href="https://youtu.be/4gRRLQCs7vg">Watch the demo</a>
+    </div>
   </div>
 </section>
 
@@ -298,6 +322,11 @@
       <h2>Built in 4 Hours</h2>
       <p class="note">Resse.ai was made by Balaji Anbalagan and Saisathish Karthikeyan for AI Tinkerers’ <em>Agents, Everywhere</em> hackathon in September 2026, starting from CopilotKit’s starter kit.</p>
       <p class="note">The constraint that shaped most of it: stay inside Expo Go, so the whole thing runs by scanning a QR code instead of producing a build. That ruled out every native face-detection module — which is why detection ended up as WebAssembly in a hidden WebView.</p>
+      <div class="elsewhere">
+        <a href="https://youtu.be/4gRRLQCs7vg">Demo video</a>
+        <a href="https://x.com/astroboy735/status/2098725119317401611">Post on X</a>
+        <a href="https://lnkd.in/p/g8XBXAbE">Post on LinkedIn</a>
+      </div>
     </div>
     <figure>
       <img src="images/team-building.jpeg" alt="Balaji and Saisathish at a desk with two laptops open, building Resse.ai during the hackathon." />
@@ -308,8 +337,13 @@
 
 <footer>
   <div class="wrap">
-    <p>Resse.ai — an AI front desk for small businesses.
-    <a href="https://github.com/ksaisathish/resse.ai">github.com/ksaisathish/resse.ai</a></p>
+    <p>Resse.ai — an AI front desk for small businesses.</p>
+    <div class="elsewhere">
+      <a href="https://github.com/ksaisathish/resse.ai">GitHub</a>
+      <a href="https://youtu.be/4gRRLQCs7vg">Demo video</a>
+      <a href="https://x.com/astroboy735/status/2098725119317401611">X</a>
+      <a href="https://lnkd.in/p/g8XBXAbE">LinkedIn</a>
+    </div>
   </div>
 </footer>
 
