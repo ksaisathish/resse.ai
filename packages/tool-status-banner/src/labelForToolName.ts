@@ -13,6 +13,7 @@ const KNOWN_LABELS: Record<string, string> = {
   message_number: "Opening message composer…",
   book_appointment: "Preparing booking…",
   list_calendar_events: "Checking Google Calendar…",
+  suggest_appointment_slots: "Finding open times…",
 };
 
 export function labelForToolName(name: string, _args?: Record<string, unknown>): string {
