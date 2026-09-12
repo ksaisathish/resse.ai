@@ -57,7 +57,7 @@ function ChatScreenContent() {
     isRecording,
     isTranscribing,
     startListening,
-    stopListeningAndSend,
+    stopListening,
     conversationMessages,
     messages,
     activeToolLabel,
@@ -176,7 +176,7 @@ function ChatScreenContent() {
           <Pressable
             style={[styles.btn, isRecording ? styles.btnPrimary : null]}
             onPressIn={() => void startListening()}
-            onPressOut={() => void stopListeningAndSend()}
+            onPressOut={() => void stopListening()}
             disabled={busy || isTranscribing || !isReady}
           >
             {isTranscribing ? (
