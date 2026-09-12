@@ -15,9 +15,15 @@ import {
 } from "@/reception";
 import { BACKEND_ORIGIN } from "@/config";
 import { createCalendarEvent, listUpcomingCalendarEvents } from "@/calendar";
+import { busyFromAppointments, suggestSlots } from "@/slots";
 import { styles } from "@/styles";
 
 const statusSchema = z.enum(["checked-in", "completed", "no-show", "cancelled"]);
+
+// How often the date/time handed to the agent is refreshed. A kiosk runs for
+// hours without anything else re-rendering it, and an agent working from a
+// "today" captured at boot will happily book someone for yesterday.
+const CLOCK_REFRESH_MS = 60_000;
 
 function appointmentLabel(snapshot: ReceptionSnapshot, id: string) {
   const appointment = snapshot.appointments.find((item) => item.id === id);
