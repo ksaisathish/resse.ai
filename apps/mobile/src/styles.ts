@@ -8,6 +8,7 @@ export const C = {
   muted: "#9ba8ad",
   accent: "#2fbf8f",
   amber: "#f6b44b",
+  danger: "#e5484d",
 };
 
 export const styles = StyleSheet.create({
@@ -34,6 +35,25 @@ export const styles = StyleSheet.create({
   pillValue: { color: C.text, fontSize: 14, fontWeight: "700" },
   list: { flex: 1, paddingHorizontal: 16 },
   empty: { color: C.muted, paddingVertical: 24, fontSize: 14, lineHeight: 21 },
+
+  statusBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.surface,
+  },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.muted },
+  statusDotOk: { backgroundColor: C.accent },
+  statusDotBad: { backgroundColor: C.danger },
+  statusText: { color: C.muted, fontSize: 12, flex: 1 },
+  statusRetryText: { color: C.accent, fontSize: 12, fontWeight: "700" },
 
   bubble: { marginVertical: 5, padding: 11, borderRadius: 10, maxWidth: "88%" },
   bubbleUser: { alignSelf: "flex-end", backgroundColor: C.accent },

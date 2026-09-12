@@ -31,6 +31,7 @@ import {
   type ToolCall,
 } from "@copilotkit/react-native/headless";
 import { Tools } from "@/tools";
+import { ConnectionStatus } from "@/connection-status";
 import { styles } from "@/styles";
 import { initialReception, upcomingAppointments } from "@/reception";
 import { createUserMessageId } from "@/message-id";
@@ -102,6 +103,8 @@ export function ChatScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <Tools reception={reception} setReception={setReception} />
+
+      <ConnectionStatus />
 
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Resse.ai · Front desk</Text>
