@@ -16,6 +16,21 @@ config.watchFolders = [
   path.resolve(__dirname, "../../packages/tool-status-banner"),
 ];
 
+// watchFolders alone isn't enough: Metro's node_modules search walks up from
+// the FILE doing the importing, so a module inside packages/tts/src looking
+// for "react" walks up through packages/tts/node_modules and the repo-root
+// node_modules — never this app's own node_modules, where react/react-native
+// actually live (the @resse/* packages only declare them as peerDependencies
+// on purpose, to avoid a second copy). This adds this app's own
+// node_modules — and the repo root's, for anything hoisted there — as
+// resolution roots for every module, regardless of which watched folder is
+// doing the requiring. Standard fix for Expo + Metro monorepo setups:
+// https://docs.expo.dev/guides/monorepos/
+config.resolver.nodeModulesPaths = [
+  path.resolve(__dirname, "node_modules"),
+  path.resolve(__dirname, "../../node_modules"),
+];
+
 const defaultResolveRequest = config.resolver.resolveRequest;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {

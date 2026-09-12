@@ -19,6 +19,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -192,48 +193,50 @@ export function ChatScreen() {
   const activeToolLabel = deriveActiveToolLabel(messages);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    <View style={styles.fullScreenRoot}>
       <Tools reception={reception} setReception={setReception} />
 
-      <ConnectionStatus />
-
-      {ENABLE_FACE_PRESENCE ? <PresenceTrigger onPresent={handlePresenceDetected} /> : null}
-
+      {/* Full-bleed background — no aspectRatio, so it fills whatever size
+          this gets (the whole screen), cropping via contentFit="cover"
+          regardless of device orientation or the source clips' own ratio. */}
       <TalkingAvatar
         ref={avatarRef}
         idleSource={defaultIdleSource}
         talkingSource={defaultTalkingSource}
-        style={{ marginHorizontal: 16, marginBottom: 12, maxWidth: 220, alignSelf: "center" }}
+        style={StyleSheet.absoluteFillObject}
       />
 
-      {activeToolLabel ? (
-        <View style={{ marginHorizontal: 16, marginBottom: 8, alignSelf: "flex-start" }}>
-          <ToolCallStatusBanner label={activeToolLabel} />
+      <SafeAreaView style={styles.overlayRoot} edges={["top", "bottom"]} pointerEvents="box-none">
+        <View style={styles.overlayTopBar} pointerEvents="box-none">
+          <ConnectionStatus />
         </View>
-      ) : null}
 
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Resse.ai · Front desk</Text>
-        <Text style={styles.title}>{reception.business.name}</Text>
-        <View style={styles.snapshot}>
-          <View style={styles.pill}>
-            <Text style={styles.pillLabel}>Hours</Text>
-            <Text style={styles.pillValue}>{reception.business.hours}</Text>
-          </View>
-          <View style={styles.pill}>
-            <Text style={styles.pillLabel}>Upcoming</Text>
-            <Text style={styles.pillValue}>
-              {upcomingAppointments(reception).length} appointment
-              {upcomingAppointments(reception).length === 1 ? "" : "s"}
+        {ENABLE_FACE_PRESENCE ? <PresenceTrigger onPresent={handlePresenceDetected} /> : null}
+
+        {/* Spacer: pushes the conversation panel to the bottom, leaving the
+            rest of the video visible above it. */}
+        <View style={{ flex: 1 }} pointerEvents="none" />
+
+        <View style={styles.bottomPanel}>
+          {activeToolLabel ? (
+            <View style={{ marginBottom: 8, alignSelf: "flex-start" }}>
+              <ToolCallStatusBanner label={activeToolLabel} />
+            </View>
+          ) : null}
+
+          <View style={styles.compactHeader}>
+            <Text style={styles.compactHeaderTitle} numberOfLines={1}>
+              {reception.business.name}
+            </Text>
+            <Text style={styles.compactHeaderMeta}>
+              {upcomingAppointments(reception).length} upcoming
             </Text>
           </View>
-        </View>
-      </View>
 
-      <FlatList
-        ref={listRef}
-        style={styles.list}
-        data={conversationMessages}
+          <FlatList
+            ref={listRef}
+            style={styles.transcriptList}
+            data={conversationMessages}
         keyExtractor={(message) => message.id}
         onContentSizeChange={() =>
           listRef.current?.scrollToEnd({ animated: true })
@@ -292,59 +295,61 @@ export function ChatScreen() {
         }}
       />
 
-      {error ? (
-        <View style={styles.gate}>
-          <Text style={styles.gateTitle}>Could not reach the agent</Text>
-          <Text style={styles.gateBody}>{error}</Text>
-          <Text style={styles.gateBody}>
-            Start npm run dev:web and check src/config.ts.
-          </Text>
-        </View>
-      ) : null}
+          {error ? (
+            <View style={styles.gate}>
+              <Text style={styles.gateTitle}>Could not reach the agent</Text>
+              <Text style={styles.gateBody}>{error}</Text>
+              <Text style={styles.gateBody}>
+                Start npm run dev:web and check src/config.ts.
+              </Text>
+            </View>
+          ) : null}
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View style={styles.composer}>
-          <TextInput
-            style={styles.input}
-            value={draft}
-            onChangeText={setDraft}
-            placeholder={isRecording ? "Listening…" : isTranscribing ? "Transcribing…" : "Ask about your money"}
-            placeholderTextColor="#6e6779"
-            onSubmitEditing={() => void send()}
-            returnKeyType="send"
-            editable={!busy && !isRecording && !isTranscribing}
-          />
-          <Pressable
-            style={[styles.btn, isRecording ? styles.btnPrimary : null]}
-            onPressIn={() => void startListening()}
-            onPressOut={() => void stopListeningAndSend()}
-            disabled={busy || isTranscribing || !isReady}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
-            {isTranscribing ? (
-              <ActivityIndicator color={C.text} size="small" />
-            ) : (
-              <Text style={isRecording ? styles.btnPrimaryText : styles.btnText}>
-                {isRecording ? "●" : "🎤"}
-              </Text>
-            )}
-          </Pressable>
-          <Pressable
-            style={[styles.btn, styles.btnPrimary]}
-            onPress={() => void send()}
-            disabled={isSendDisabled}
-          >
-            {busy ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.btnPrimaryText}>
-                {isReady ? "Send" : "Connecting"}
-              </Text>
-            )}
-          </Pressable>
+            <View style={styles.composer}>
+              <TextInput
+                style={styles.input}
+                value={draft}
+                onChangeText={setDraft}
+                placeholder={isRecording ? "Listening…" : isTranscribing ? "Transcribing…" : "Ask about the business or an appointment"}
+                placeholderTextColor="#6e6779"
+                onSubmitEditing={() => void send()}
+                returnKeyType="send"
+                editable={!busy && !isRecording && !isTranscribing}
+              />
+              <Pressable
+                style={[styles.btn, isRecording ? styles.btnPrimary : null]}
+                onPressIn={() => void startListening()}
+                onPressOut={() => void stopListeningAndSend()}
+                disabled={busy || isTranscribing || !isReady}
+              >
+                {isTranscribing ? (
+                  <ActivityIndicator color={C.text} size="small" />
+                ) : (
+                  <Text style={isRecording ? styles.btnPrimaryText : styles.btnText}>
+                    {isRecording ? "●" : "🎤"}
+                  </Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={[styles.btn, styles.btnPrimary]}
+                onPress={() => void send()}
+                disabled={isSendDisabled}
+              >
+                {busy ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.btnPrimaryText}>
+                    {isReady ? "Send" : "Connecting"}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }

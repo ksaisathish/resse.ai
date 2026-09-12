@@ -104,7 +104,7 @@ production clips are ready — same prop shape either way (`expo-video`'s
 |---|---|---|---|
 | `idleSource` | `VideoSource` | — (required) | Looping resting-state clip |
 | `talkingSource` | `VideoSource` | — (required) | One-shot talking clip; auto-reverts to idle on end |
-| `aspectRatio` | `number` | `9/16` | Frame aspect ratio (portrait kiosk by default) |
+| `aspectRatio` | `number` | unset | Locks the frame to a fixed ratio. Leave unset to fill whatever size `style` gives the container (e.g. `StyleSheet.absoluteFillObject` for a full-screen background) — `contentFit="cover"` crops to fill regardless of the source clips' own aspect ratio, so this isn't required. The bundled sample clips are landscape (672×448 / 1280×720), not portrait. |
 | `crossfadeDurationMs` | `number` | `200` | Fade duration between layers |
 | `style` | `ViewStyle` | — | Extra styling on the outer container |
 | `onStateChange` | `(state: 'idle' \| 'talking') => void` | — | Fires on every state transition, including the automatic talking→idle one |

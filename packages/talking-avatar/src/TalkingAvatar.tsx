@@ -22,7 +22,7 @@ export const TalkingAvatar = forwardRef<TalkingAvatarHandle, TalkingAvatarProps>
     {
       idleSource,
       talkingSource,
-      aspectRatio = 9 / 16,
+      aspectRatio,
       crossfadeDurationMs = 200,
       style,
       onStateChange,
@@ -42,6 +42,22 @@ export const TalkingAvatar = forwardRef<TalkingAvatarHandle, TalkingAvatarProps>
       player.loop = false;
       player.muted = true;
     });
+
+    // `player.play()` in the setup callback above is the documented pattern,
+    // but for a local `require(...)` asset the player can still be mid-load
+    // at that exact synchronous moment, and silently drop the call instead of
+    // queuing it — the idle loop then never starts until something else
+    // (e.g. the first goIdle() after talking) happens to re-trigger it. This
+    // re-asserts play() once the player actually reports ready, which is the
+    // one point playback is guaranteed to actually take.
+    useEffect(() => {
+      const subscription = idlePlayer.addListener("statusChange", ({ status }) => {
+        // Harmless to call even if the talking layer is currently on top —
+        // the idle player sits invisibly underneath either way.
+        if (status === "readyToPlay") idlePlayer.play();
+      });
+      return () => subscription.remove();
+    }, [idlePlayer]);
 
     const goIdle = useCallback(() => {
       Animated.timing(talkingOpacity, {
@@ -87,7 +103,7 @@ export const TalkingAvatar = forwardRef<TalkingAvatarHandle, TalkingAvatarProps>
     );
 
     return (
-      <View style={[styles.container, { aspectRatio }, style]}>
+      <View style={[styles.container, aspectRatio ? { aspectRatio } : null, style]}>
         <VideoView
           player={idlePlayer}
           style={styles.video}
