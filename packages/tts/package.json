@@ -1,0 +1,20 @@
+{
+  "name": "@resse/tts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Text-to-speech for the Resse.ai Expo app with a robotic/realistic flag — free on-device voice by default, cheap cloud voice on flag, Expo Go compatible.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false,
+  "peerDependencies": {
+    "react": ">=19",
+    "react-native": ">=0.81",
+    "expo-speech": ">=13.0.0",
+    "expo-audio": ">=0.4.0",
+    "expo-file-system": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "typescript": "~5.9.0"
+  }
+}

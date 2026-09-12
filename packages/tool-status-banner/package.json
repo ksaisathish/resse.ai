@@ -1,0 +1,17 @@
+{
+  "name": "@resse/tool-status-banner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A small status banner showing what tool the Resse.ai receptionist is currently calling (e.g. \"Checking today's queue...\"). Presentational only, no backend.",
+  "main": "src/index.tsx",
+  "types": "src/index.tsx",
+  "sideEffects": false,
+  "peerDependencies": {
+    "react": ">=19",
+    "react-native": ">=0.81"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "typescript": "~5.9.0"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@resse/presence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Camera-based presence/face-check scaffold for the Resse.ai kiosk, Expo Go compatible. Capture is real; the detection call is pluggable — see README for why.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false,
+  "peerDependencies": {
+    "react": ">=19",
+    "react-native": ">=0.81",
+    "expo-camera": ">=17.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "typescript": "~5.9.0"
+  }
+}
