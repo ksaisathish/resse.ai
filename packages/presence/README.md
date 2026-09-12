@@ -12,8 +12,9 @@ face/person detection is a pluggable function, on purpose — see below.
 
 ## Why real on-device face detection looked impossible in Expo Go, and the option that isn't
 
-You asked to stay in Expo Go — no `expo prebuild`, no dev client, no custom
-native modules. That constraint rules out most real-time, on-device face
+This app stays in Expo Go — no `expo prebuild`, no dev client, no custom
+native modules — so it can be run by scanning a QR code rather than
+producing a build. That constraint rules out most real-time, on-device face
 detection options:
 
 | Option | Face detection? | Expo Go compatible? |
@@ -139,24 +140,22 @@ The on-device `useMediaPipePresenceChecker` example is above; here's the
 same wiring using the cloud fallback instead:
 
 ```tsx
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useFacePresence, createVisionPresenceChecker } from "@resse/presence";
-
-const ENABLE_FACE_PRESENCE = process.env.EXPO_PUBLIC_ENABLE_FACE_PRESENCE === "true"; // flag, default off
 
 function KioskCamera({ onGreet }: { onGreet: () => void }) {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
 
-  const checkPresence = createVisionPresenceChecker({ baseUrl: RUNTIME_HOST });
-  const { isPresent, start } = useFacePresence(cameraRef, {
+  // Created once, outside render, or useFacePresence's interval restarts.
+  const checkPresence = useRef(createVisionPresenceChecker({ baseUrl: RUNTIME_HOST })).current;
+  const { start } = useFacePresence(cameraRef, {
     checkPresence,
     intervalMs: 3000, // don't go much lower than this — every tick is a paid vision call
     onPresent: onGreet,
   });
 
-  if (!ENABLE_FACE_PRESENCE) return null; // flag off: rely on tap-to-talk instead
   if (!permission?.granted) {
     requestPermission();
     return null;
@@ -172,24 +171,36 @@ function KioskCamera({ onGreet }: { onGreet: () => void }) {
 }
 ```
 
-## The flag
-
-`ENABLE_FACE_PRESENCE` (suggested env: `EXPO_PUBLIC_ENABLE_FACE_PRESENCE`,
-default `false`/unset): when off, skip mounting the camera entirely and
-drive the conversation start from a tap/button instead. When on, the camera
-loop runs alongside the tap affordance — either can start the interaction.
-Keep it off by default; flip it on once you've confirmed the per-call cost
-and latency are acceptable for how long the kiosk runs per day.
-
 ## Cost and latency, concretely
 
-With `gpt-4o-mini` vision at a 3-second interval, a kiosk running 8 hours/day
-makes ~9,600 checks/day. At low-res/cheap-tier vision pricing this is a few
-dollars a day — check current OpenAI pricing before committing, and
-consider widening `intervalMs` (or gating it behind a cheaper first-pass
-trigger, like a hardware presence sensor or the phone's proximity/ambient
-light sensor) if that's too much for your budget. Each check also adds
-network latency (typically under 2s with a fast model, but on a flaky
-connection — see the notes earlier in this session — it can stall), so
-don't block the greeting entirely on this; a tap-to-talk button should
-always be visible as the fallback.
+**On-device (`useMediaPipePresenceChecker`, the default):** no per-check
+cost and no per-check network call at any interval. The one network cost is
+the first load of the WASM runtime and model in the WebView (a few hundred
+KB, cached by the WebView afterwards), during which `isReady` is `false`
+and checks resolve as "nobody detected" rather than erroring.
+
+**Cloud (`createVisionPresenceChecker`):** priced per call. At a 3-second
+interval a kiosk running 8 hours/day makes ~9,600 checks/day — check
+current OpenAI pricing before committing to that, and widen `intervalMs`
+if it's too much. Each check also adds network latency (typically under 2s,
+but it can stall on a flaky connection).
+
+Either way, keep a visible tap-to-talk control as the fallback: cameras get
+blocked, covered and pointed at the ceiling, and a kiosk whose only way in
+is a camera is a kiosk that's sometimes unusable.
+
+## Two things this package is careful about
+
+Both were real bugs, and both are easy to reintroduce:
+
+1. **Callback identity.** `onPresent`/`onError`/`checkPresence` are read
+   from a ref, so the capture interval never restarts when a caller passes
+   inline arrows (which is every caller). When the interval depended on
+   their identity, every parent render tore it down and rebuilt it — and a
+   rebuild fires a capture immediately, which sets state, which renders
+   again. The result was a capture loop running flat out instead of once per
+   `intervalMs`.
+2. **WebView `source` identity.** `react-native-webview` reloads the
+   document when `source` is a new object, so the MediaPipe element is
+   memoized with a module-level source constant. Rebuilding it inline
+   re-downloads and re-initializes the whole detector on every render.

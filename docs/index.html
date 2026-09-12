@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Resse.ai — the front desk that answers itself</title>
+<meta name="description" content="An AI receptionist that runs on an old tablet mounted at a small business front desk. It notices you, listens, answers out loud, and books you in." />
+<meta property="og:title" content="Resse.ai — the front desk that answers itself" />
+<meta property="og:description" content="An AI receptionist running on a tablet at a real front desk. Notices you, listens, answers out loud, books you in." />
+<meta property="og:image" content="images/kiosk-in-conversation.jpeg" />
+<meta name="theme-color" content="#0E1518" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Taken from the app's own tokens (apps/mobile/src/styles.ts): the site
+       and the kiosk are the same object, so they share a palette. */
+    --ink: #0E1518;
+    --slate: #16232A;
+    --line: #2A3B43;
+    --jade: #2FBF8F;      /* listening / live */
+    --amber: #F6B44B;     /* waiting on a human */
+    --paper: #EDE6D8;     /* the appointment book it replaces */
+    --mist: #9BA8AD;
+    --measure: 34rem;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: clamp(1rem, 0.96rem + 0.2vw, 1.075rem);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  p { margin: 0 0 1.1rem; max-width: var(--measure); }
+  a { color: var(--jade); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--jade); outline-offset: 3px; }
+  img { display: block; max-width: 100%; }
+
+  .wrap { width: min(100% - 3rem, 64rem); margin-inline: auto; }
+
+  section { padding-block: clamp(4rem, 9vw, 7.5rem); }
+  section + section { border-top: 1px solid var(--line); }
+
+  /* ---- Hero: the product is a physical thing on a counter, so the
+         photograph of it mid-conversation is the headline act. ---- */
+  .hero { position: relative; min-height: min(88svh, 46rem); display: grid; padding: 0; }
+  .hero-photo, .hero-scrim, .hero-body { grid-area: 1 / 1; }
+  .hero-photo { width: 100%; height: 100%; object-fit: cover; }
+  /* Dark enough for the headline to hold, light enough that the lit tablet
+     — the actual product — still reads through it. */
+  .hero-scrim {
+    background:
+      linear-gradient(to top, rgba(14,21,24,0.95) 6%, rgba(14,21,24,0.55) 34%, rgba(14,21,24,0) 70%),
+      linear-gradient(to right, rgba(14,21,24,0.82), rgba(14,21,24,0.1) 55%, rgba(14,21,24,0) 75%);
+  }
+  .hero-body { align-self: end; padding-block: clamp(2rem, 5vw, 4rem); }
+
+  .wordmark {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+    color: var(--jade);
+    margin: 0 0 1.25rem;
+  }
+
+  .hero h1 { font-size: clamp(2.6rem, 7.5vw, 5.25rem); max-width: 16ch; }
+  .hero p { font-size: clamp(1.05rem, 1rem + 0.35vw, 1.3rem); color: var(--paper); margin-top: 1.5rem; max-width: 38rem; }
+
+  /* The app's own listening chip, reused as the page's one live element. */
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.55rem;
+    margin-top: 2rem; padding: 0.5rem 1rem;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: rgba(14,21,24,0.75);
+    font-size: 0.95rem; font-weight: 500;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--jade); }
+  @media (prefers-reduced-motion: no-preference) {
+    .dot { animation: breathe 2.4s ease-in-out infinite; }
+  }
+  @keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+  .lede { font-size: clamp(1.15rem, 1.05rem + 0.5vw, 1.5rem); line-height: 1.45; max-width: 30ch; }
+
+  h2 { font-size: clamp(1.9rem, 1.4rem + 1.9vw, 3rem); max-width: 20ch; }
+  h2 + p, h2 + .note { margin-top: 1.5rem; }
+  h3 { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
+
+  .note { color: var(--mist); }
+
+  /* ---- Transcript: the product is a conversation, so show one. Styled
+         the way the kiosk renders its own captions. ---- */
+  .transcript { margin-top: 2.75rem; display: grid; gap: 1.75rem; max-width: 44rem; }
+  .turn { border-left: 2px solid var(--line); padding-left: 1.5rem; }
+  .turn.visitor { border-left-color: var(--mist); }
+  .turn.desk { border-left-color: var(--jade); }
+  .who { font-size: 0.9rem; color: var(--mist); margin: 0 0 0.4rem; }
+  .said { font-size: clamp(1.1rem, 1rem + 0.45vw, 1.4rem); line-height: 1.4; margin: 0; max-width: none; }
+  .visitor .said { font-style: italic; color: var(--mist); }
+  .desk .said { color: var(--paper); font-weight: 500; }
+  .aside {
+    margin-top: 0.85rem; padding: 0.85rem 1rem;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--slate); color: var(--mist);
+    font-size: 0.95rem; max-width: 34rem;
+  }
+  .aside b { color: var(--amber); font-weight: 600; }
+
+  /* ---- The walk-up: a genuine sequence, so it's drawn as one. ---- */
+  .steps { margin-top: 3rem; display: grid; gap: 0; max-width: 46rem; }
+  .step {
+    display: grid; gap: 0.5rem;
+    padding-block: 1.6rem; border-top: 1px solid var(--line);
+  }
+  @media (min-width: 34rem) {
+    .step { grid-template-columns: 8rem 1fr; gap: 1.75rem; }
+  }
+  .step:last-child { border-bottom: 1px solid var(--line); }
+  .when { color: var(--jade); font-weight: 600; font-size: 0.95rem; padding-top: 0.15rem; }
+  .step p { margin: 0.4rem 0 0; color: var(--mist); }
+
+  /* ---- Two-up figure ---- */
+  .split { display: grid; gap: clamp(2rem, 5vw, 4rem); align-items: center; }
+  @media (min-width: 56rem) { .split { grid-template-columns: 1.05fr 1fr; } }
+  figure { margin: 0; }
+  figure img { border-radius: 12px; border: 1px solid var(--line); width: 100%; }
+  figcaption { color: var(--mist); font-size: 0.9rem; margin-top: 0.85rem; max-width: 34rem; }
+
+  .facts { margin: 2rem 0 0; padding: 0; list-style: none; display: grid; gap: 0.9rem; max-width: var(--measure); }
+  .facts li { display: grid; grid-template-columns: auto 1fr; gap: 0.85rem; align-items: start; }
+  .facts svg { margin-top: 0.45rem; flex: none; }
+  .facts b { font-weight: 600; }
+
+  .limits { border: 1px solid var(--line); border-radius: 12px; padding: clamp(1.25rem, 3vw, 2rem); background: var(--slate); max-width: 44rem; margin-top: 2.5rem; }
+  .limits h3 { margin-bottom: 0.75rem; }
+  .limits ul { margin: 0; padding-left: 1.1rem; color: var(--mist); }
+  .limits li { margin-bottom: 0.5rem; }
+  .limits li:last-child { margin-bottom: 0; }
+
+  .cta {
+    display: inline-block; margin-top: 2rem;
+    background: var(--jade); color: #06201A;
+    font-weight: 600; text-decoration: none;
+    padding: 0.85rem 1.6rem; border-radius: 8px;
+  }
+  .cta:hover { background: #3FD7A3; }
+
+  footer { padding-block: 4rem 5rem; color: var(--mist); font-size: 0.95rem; }
+  footer a { color: var(--paper); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <img class="hero-photo" src="images/kiosk-in-conversation.jpeg"
+       alt="A tablet propped on a table showing the Resse.ai receptionist: a video avatar mid-sentence, a Listening badge, and captions of the conversation. A laptop running the backend sits beside it." />
+  <div class="hero-scrim" aria-hidden="true"></div>
+  <div class="hero-body">
+    <div class="wrap">
+      <p class="wordmark">Resse.ai</p>
+      <h1>The front desk that answers itself.</h1>
+      <p>An old tablet, mounted where customers walk in. It notices someone is there, listens, answers out loud, and books them in — then waits for the next person.</p>
+      <span class="chip"><span class="dot" aria-hidden="true"></span> Listening…</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="lede">Small businesses lose customers to a phone nobody is free to answer.</p>
+    <p class="note">The receptionist is busy with the person in front of them, so the person walking in waits, and the person calling gives up. Resse.ai takes the walk-in half: it greets, answers what the business actually offers, finds a real open slot, and holds the booking until a human confirms it.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>A real exchange, from the tablet above</h2>
+    <p class="note">Nothing here is scripted. This is what the agent said when asked for a service the clinic doesn't list.</p>
+
+    <div class="transcript">
+      <div class="turn visitor">
+        <p class="who">Visitor</p>
+        <p class="said">“I would like to book a general consultation.”</p>
+      </div>
+      <div class="turn desk">
+        <p class="who">Resse.ai</p>
+        <p class="said">General consultation isn’t one of the listed services. Would you like me to book it as a Checkup at ten in the morning on Monday, 14 September?</p>
+        <p class="aside">It didn’t invent a service to be agreeable, and it didn’t invent a time. The slot came from the clinic’s opening hours minus everything already booked — including the owner’s Google Calendar. <b>Confirming it is a human’s tap</b>, not the agent’s decision.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What happens when someone walks up</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="when">It notices</div>
+        <div>
+          <h3>No wake word, no button</h3>
+          <p>Face detection runs on the device itself — MediaPipe compiled to WebAssembly, inside a hidden WebView — so it costs nothing per check and no camera frame ever leaves the tablet.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="when">It listens</div>
+        <div>
+          <h3>And knows when you’ve finished</h3>
+          <p>Recording stops on silence rather than on a timer, so short answers aren’t padded and long ones aren’t cut off.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="when">It answers</div>
+        <div>
+          <h3>Out loud, with the avatar’s mouth moving and captions on screen</h3>
+          <p>Then it listens again, immediately, for the follow-up — the thing that separates a conversation from a search box.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="when">It books</div>
+        <div>
+          <h3>Into a real calendar, against a real deposit</h3>
+          <p>Confirming writes a Google Calendar event. If the business takes a deposit, a UPI QR appears on the approval card first.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap split">
+    <figure>
+      <img src="images/owner-dashboard.jpeg" alt="The owner dashboard on a tablet, showing a clinic's hours, services as chips, description, and booking deposit, imported from the clinic's website." />
+      <figcaption>Set up by pasting a URL. The services, description and hours here were read off the clinic’s own website.</figcaption>
+    </figure>
+    <div>
+      <h2>The owner gets the other half</h2>
+      <p class="note">Point it at a business’s website and it builds the receptionist’s knowledge from what it finds. Behind that sits an admin surface: today’s numbers, the client directory, an appointments calendar, and settings for the voice, the avatar and the integrations.</p>
+      <ul class="facts">
+        <li>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 8.5 6 12.5 14 3.5" stroke="#2FBF8F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><b>Nothing is written without a tap.</b> Reads render cards; writes render an approval card.</span>
+        </li>
+        <li>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 8.5 6 12.5 14 3.5" stroke="#2FBF8F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><b>It never dials or texts on its own.</b> It opens the phone’s own dialer or composer with the fields filled in.</span>
+        </li>
+        <li>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 8.5 6 12.5 14 3.5" stroke="#2FBF8F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><b>It knows what day it is.</b> The kiosk’s real date and timezone go to the model every turn, so “next Tuesday” resolves to a date that exists.</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>How it’s put together</h2>
+    <p class="note">An Expo app holds the tools and the app state; a Next.js backend holds the CopilotKit runtime, the API keys, and the speech routes. Tool calls execute <em>on the device</em> — that’s how the agent can open a dialer, render a QR, or block on someone’s approval tap — while the model runs server-side. Swapping the model provider, or the whole agent framework, is a change in one file.</p>
+
+    <div class="limits">
+      <h3>What it isn’t yet</h3>
+      <ul>
+        <li>Payment confirmation is a person looking at the payer’s phone. There’s no gateway webhook.</li>
+        <li>The Google session lasts about an hour; there’s no refresh flow.</li>
+        <li>Appointments live on the device. No server-side store, no multi-device sync.</li>
+        <li>Rescheduling and cancelling an existing booking aren’t built.</li>
+      </ul>
+    </div>
+
+    <a class="cta" href="https://github.com/ksaisathish/resse.ai">Read the code on GitHub</a>
+  </div>
+</section>
+
+<section>
+  <div class="wrap split">
+    <div>
+      <h2>Built in two days</h2>
+      <p class="note">Resse.ai was made by Balaji Anbalagan and Saisathish Karthikeyan for AI Tinkerers’ <em>Agents, Everywhere</em> hackathon in September 2026, starting from CopilotKit’s starter kit.</p>
+      <p class="note">The constraint that shaped most of it: stay inside Expo Go, so the whole thing runs by scanning a QR code instead of producing a build. That ruled out every native face-detection module — which is why detection ended up as WebAssembly in a hidden WebView.</p>
+    </div>
+    <figure>
+      <img src="images/team-building.jpeg" alt="Balaji and Saisathish at a desk with two laptops open, building Resse.ai during the hackathon." />
+      <figcaption>Balaji and Saisathish, mid-build.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Resse.ai — an AI front desk for small businesses.
+    <a href="https://github.com/ksaisathish/resse.ai">github.com/ksaisathish/resse.ai</a></p>
+  </div>
+</footer>
+
+</body>
+</html>

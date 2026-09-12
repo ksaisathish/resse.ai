@@ -23,13 +23,6 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useFacePresence, useMediaPipePresenceChecker } from "@resse/presence";
 import { styles } from "@/styles";
 
-// Global opt-in for surfaces that only want presence as an occasional
-// convenience (kept for the plain Chat screen, or anywhere the cost of an
-// always-on vision call isn't wanted by default). The Receptionist screen
-// doesn't gate on this — hands-free presence detection is that screen's
-// whole purpose, not an optional extra.
-export const ENABLE_FACE_PRESENCE = process.env.EXPO_PUBLIC_ENABLE_FACE_PRESENCE === "true";
-
 export function PresenceTrigger({
   onPresent,
   onAbsent,

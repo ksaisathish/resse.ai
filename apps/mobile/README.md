@@ -112,16 +112,43 @@ Mark Jordan Blake's appointment as checked in.
 
 Expected: the approval card shows the appointment can't transition (it's already `completed`) and **Approve** stays disabled — this is the one built-in failure/cancellation path.
 
+### The hands-free flow
+
+From the dashboard, tap **Start receptionist**. Stand in front of the camera: the person count badge goes to 1 and it starts listening on its own. Say:
+
+```text
+What time do you open on Thursday?
+```
+
+Expected: it answers out loud, the avatar's mouth moves for the whole answer, captions show both sides, and then it **listens again** without being asked. Keep going:
+
+```text
+Book me a cleaning that morning.
+```
+
+Expected: it calls `suggest_appointment_slots` for real open times (opening hours minus what's already booked, including the operator's Google Calendar), offers them out loud, and once you pick one, `book_appointment` renders an approval card — with a UPI QR if the business has a deposit configured. Tapping confirm writes the Google Calendar event.
+
+If the camera can't see you (covered, bad angle, still loading), the button at the bottom is the fallback: **Tap to talk**, then **Stop & send** or **Stop talking** to cut a turn short.
+
 ## Customize these files
 
 | Piece | File |
 | --- | --- |
 | App shell + navigation stack | [App.tsx](App.tsx) |
 | Splash / login / dashboard screens | [src/splash-screen.tsx](src/splash-screen.tsx), [src/login-screen.tsx](src/login-screen.tsx), [src/dashboard-screen.tsx](src/dashboard-screen.tsx) |
+| Business onboarding (URL scrape + confirm) | [src/create-org-screen.tsx](src/create-org-screen.tsx), backend at [../web/src/app/api/org/scrape/route.ts](../web/src/app/api/org/scrape/route.ts) |
+| **Hands-free kiosk screen** (turn taking, captions, manual fallback) | [src/receptionist-screen.tsx](src/receptionist-screen.tsx) |
+| Shared agent/voice wiring behind both screens | [src/use-reception-agent.ts](src/use-reception-agent.ts) |
+| Camera presence trigger | [src/presence-trigger.tsx](src/presence-trigger.tsx), [../../packages/presence](../../packages/presence) |
+| Admin surface (dashboard, clients, calendar, settings) | [src/admin-screen.tsx](src/admin-screen.tsx) and `src/admin-*.tsx` |
 | Google sign-in (PKCE) | [src/use-google-auth.ts](src/use-google-auth.ts), backend exchange at [../web/src/app/api/auth/google/route.ts](../web/src/app/api/auth/google/route.ts) |
 | Session storage (SecureStore) | [src/auth.ts](src/auth.ts) |
+| Persisted appointments/clients and app settings | [src/reception-store.ts](src/reception-store.ts), [src/settings-store.ts](src/settings-store.ts) |
 | Headless chat | [src/chat.tsx](src/chat.tsx) |
 | Reception sample state + status-transition rules | [src/reception.ts](src/reception.ts) |
+| Open-slot suggestion (opening hours minus what's booked) | [src/slots.ts](src/slots.ts) |
+| Markdown → spoken text for TTS and captions | [src/speech-text.ts](src/speech-text.ts) |
+| Google Calendar reads/writes | [src/calendar.ts](src/calendar.ts) |
 | CopilotKit tools and app context | [src/tools.tsx](src/tools.tsx) |
 | Runtime/backend URLs, Google client ID | [src/config.ts](src/config.ts) |
 | Mobile runtime endpoint | [../web/src/app/api/mobile-copilotkit/[[...path]]/route.ts](../web/src/app/api/mobile-copilotkit/[[...path]]/route.ts) |
@@ -133,16 +160,17 @@ Imports come from `@copilotkit/react-native/headless` so the app avoids optional
 
 ## What's still missing
 
-- **Voice.** This app is currently text-chat only. The backend has a working browser voice reference (`apps/web/src/app/voice`, OpenAI Realtime over WebRTC), but that transport doesn't exist on Expo out of the box. Options being evaluated: `react-native-webrtc` (needs an EAS dev build), WebSocket streaming to the Realtime API, or a push-to-talk record → STT → agent turn → TTS loop. See [RESSE_IDEATION_CONTEXT.md](../../RESSE_IDEATION_CONTEXT.md).
-- **Google sign-in is untested against a real client** — see the caveat above about Expo Go vs. an EAS dev build for the OAuth redirect.
-- **Calendar sync.** The sign-in flow requests Calendar scope and the backend receives an access token, but nothing calls the Calendar API yet.
-- **Business onboarding.** No Exa-scrape-and-confirm flow yet; `initialReception` in `src/reception.ts` is hand-written sample data.
-- **Persistence.** Appointment state lives in RN memory and resets on reload — fine for a demo, not for a kiosk that needs to survive a restart. There's also no multi-tenant data model yet: every signed-in account currently sees the same shared sample business/appointments, not their own. A real datastore behind `apps/web` is the next step before this is a real product.
-- **Camera/presence detection, payments, reviews.** Out of scope for now — see the ideation doc for the reasoning.
+- **No Google token refresh.** The access token from sign-in lasts about an hour and there's no refresh flow, so calendar tools start failing with a "session expired" message until someone signs in again. Fine for a demo, wrong for a kiosk left running unattended — see the note at the top of [src/auth.ts](src/auth.ts).
+- **No automatic payment verification.** The UPI QR is real, but nothing observes whether the payment landed; the operator's confirm tap *is* the check. A payment-gateway integration (Razorpay/Cashfree/PhonePe Business) is what would close this — see [../web/src/app/api/payments/qr/route.ts](../web/src/app/api/payments/qr/route.ts).
+- **No reschedule or cancel tool.** `book_appointment` only creates. Moving an appointment (and updating the Google Calendar event it already made) isn't built.
+- **Device-local data, single tenant.** Clients and appointments live in AsyncStorage on the device and survive restarts, but there's no server-side store and no multi-tenant model: every signed-in account on a device sees the same business. A real datastore behind `apps/web` is the next step before this is a product.
+- **Reviews collection.** Not built.
 
 ## Verify and limits
 
-Run `npm test`, `npm run typecheck`, `npm run bundle:ios`, and `npm run bundle:android` from `apps/mobile` before recording. The app changes local sample state only. It does not connect to a calendar, payment service, or messaging provider yet.
+Run `npm test`, `npm run typecheck`, `npm run bundle:ios`, and `npm run bundle:android` from `apps/mobile` before recording.
+
+The unit tests cover the pure logic that's awkward to exercise by hand: appointment status transitions, slot suggestion across closed days and week boundaries ([test/slots.test.ts](test/slots.test.ts)), and markdown-to-speech conversion ([test/speech-text.test.ts](test/speech-text.test.ts)). The voice, camera and approval flows are not automated — drive those on a device.
 
 ## Upstream source
 
