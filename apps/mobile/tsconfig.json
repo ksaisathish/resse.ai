@@ -5,7 +5,10 @@
     "jsx": "react-jsx",
     "allowImportingTsExtensions": true,
     "moduleResolution": "bundler",
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      "expo-camera": ["./node_modules/expo-camera"]
+    }
   },
   "include": ["index.js", "App.tsx", "src", "test", "*.d.ts"]
 }

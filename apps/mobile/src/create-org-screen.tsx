@@ -12,11 +12,12 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation";
 import { BACKEND_ORIGIN } from "@/config";
 import { saveOrg, type OrgBusiness } from "@/org";
-import { styles } from "@/styles";
+import { initialReception } from "@/reception";
+import { C, styles } from "@/styles";
 
 type Props = NativeStackScreenProps<RootStackParamList, "CreateOrg">;
 
-type Status = "idle" | "scraping" | "confirming" | "saving";
+type Status = "idle" | "scraping" | "confirming" | "saving" | "skipping";
 
 export function CreateOrgScreen({ navigation }: Props) {
   const [url, setUrl] = useState("");
@@ -61,6 +62,16 @@ export function CreateOrgScreen({ navigation }: Props) {
     setStatus("idle");
   }
 
+  async function skipWithDemoData() {
+    setStatus("skipping");
+    const demoOrg: OrgBusiness = {
+      ...initialReception.business,
+      description: "Demo data — replace by scraping your own business URL from the dashboard.",
+    };
+    await saveOrg(demoOrg);
+    navigation.replace("Dashboard");
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
@@ -88,7 +99,7 @@ export function CreateOrgScreen({ navigation }: Props) {
 
             <Pressable
               style={[styles.btn, styles.btnPrimary, styles.btnBlock]}
-              disabled={!url.trim() || status === "scraping"}
+              disabled={!url.trim() || status === "scraping" || status === "skipping"}
               onPress={() => void scrape()}
             >
               {status === "scraping" ? (
@@ -100,8 +111,15 @@ export function CreateOrgScreen({ navigation }: Props) {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <Pressable onPress={() => navigation.replace("Dashboard")}>
-              <Text style={styles.btnLink}>Skip for now — use demo data</Text>
+            <Pressable
+              disabled={status === "skipping"}
+              onPress={() => void skipWithDemoData()}
+            >
+              {status === "skipping" ? (
+                <ActivityIndicator color={C.muted} size="small" />
+              ) : (
+                <Text style={styles.btnLink}>Skip for now — use demo data</Text>
+              )}
             </Pressable>
           </>
         ) : (

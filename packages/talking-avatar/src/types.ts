@@ -17,7 +17,11 @@ export interface TalkingAvatarProps {
   idleSource: VideoSource;
   /** One-shot talking clip, played once then auto-reverts to idle. */
   talkingSource: VideoSource;
-  /** width / height of the avatar frame. Defaults to 9/16 (portrait kiosk). */
+  /** Locks the frame to a fixed width/height ratio. Leave unset to let the
+   * container fill whatever size `style` gives it instead (e.g.
+   * `StyleSheet.absoluteFillObject` for a full-screen background) —
+   * `contentFit="cover"` crops to fill regardless of the source clips' own
+   * aspect ratio, so this is optional, not required. */
   aspectRatio?: number;
   /** Crossfade duration in ms between idle and talking layers. Defaults to 200. */
   crossfadeDurationMs?: number;

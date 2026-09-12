@@ -36,6 +36,34 @@ export const styles = StyleSheet.create({
   list: { flex: 1, paddingHorizontal: 16 },
   empty: { color: C.muted, paddingVertical: 24, fontSize: 14, lineHeight: 21 },
 
+  // Full-screen avatar layout: the video is an absolute-fill background;
+  // everything else sits in a translucent panel pinned to the bottom so the
+  // video stays the dominant visual, not a small box competing with a
+  // regular scrolling screen.
+  fullScreenRoot: { flex: 1, backgroundColor: C.ground },
+  overlayRoot: { flex: 1 },
+  overlayTopBar: { paddingHorizontal: 12, paddingTop: 8 },
+  bottomPanel: {
+    backgroundColor: "rgba(17,20,23,0.9)",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderColor: C.border,
+    paddingTop: 10,
+    paddingHorizontal: 16,
+    maxHeight: "45%",
+  },
+  compactHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 6,
+  },
+  compactHeaderTitle: { color: C.text, fontSize: 15, fontWeight: "700", flexShrink: 1 },
+  compactHeaderMeta: { color: C.muted, fontSize: 12 },
+  transcriptList: { maxHeight: 200, flexGrow: 0 },
+
   statusBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -126,6 +154,31 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
+    gap: 8,
+  },
+  scrollScreen: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  responsiveColumn: {
+    width: "100%",
+    maxWidth: 480,
+    alignItems: "center",
+    gap: 8,
+  },
+  responsiveRow: {
+    width: "100%",
+    maxWidth: 760,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    gap: 32,
+  },
+  responsiveRowCol: {
+    flex: 1,
+    alignItems: "center",
     gap: 8,
   },
   brandTitle: { color: C.text, fontSize: 30, fontWeight: "800" },
