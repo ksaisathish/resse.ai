@@ -15,6 +15,7 @@ import { ChatScreen } from "@/chat";
 import { SplashScreen } from "@/splash-screen";
 import { LoginScreen } from "@/login-screen";
 import { DashboardScreen } from "@/dashboard-screen";
+import { CreateOrgScreen } from "@/create-org-screen";
 import { RUNTIME_URL } from "@/config";
 import type { RootStackParamList } from "@/navigation";
 
@@ -32,6 +33,7 @@ export default function App() {
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="CreateOrg" component={CreateOrgScreen} options={{ headerShown: true, title: "Create organization" }} />
             <Stack.Screen name="FrontDesk" component={ChatScreen} options={{ headerShown: true, title: "Front desk" }} />
           </Stack.Navigator>
         </NavigationContainer>

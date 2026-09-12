@@ -8,6 +8,11 @@ export { RECEPTION_PROMPT } from "./reception-prompt";
 export { resolveModel } from "./model";
 export { searchWeb, isSearchConfigured } from "./capabilities/search";
 export {
+  scrapeBusinessSite,
+  isBusinessScrapeConfigured,
+  type ScrapedBusiness,
+} from "./capabilities/business-scrape";
+export {
   workplaceMcpServers,
   isWorkplaceConfigured,
   WORKPLACE_CONTEXT,

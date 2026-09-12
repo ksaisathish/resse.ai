@@ -30,15 +30,32 @@ import {
   useRenderToolCall,
   type ToolCall,
 } from "@copilotkit/react-native/headless";
+import {
+  TalkingAvatar,
+  defaultIdleSource,
+  defaultTalkingSource,
+  type TalkingAvatarHandle,
+} from "@resse/talking-avatar";
+import { useTextToSpeech } from "@resse/tts";
+import { ToolCallStatusBanner, deriveActiveToolLabel } from "@resse/tool-status-banner";
 import { Tools } from "@/tools";
 import { ConnectionStatus } from "@/connection-status";
 import { styles } from "@/styles";
 import { initialReception, upcomingAppointments } from "@/reception";
 import { createUserMessageId } from "@/message-id";
 import { AssistantMarkdown } from "@/assistant-markdown";
+import { BACKEND_ORIGIN } from "@/config";
+import { loadOrg } from "@/org";
+
+// Flag: "robotic" (default, free, on-device) vs "realistic" (cloud voice via
+// /api/tts, small per-character cost). Set EXPO_PUBLIC_TTS_MODE=realistic in
+// apps/mobile/.env to flip it — see packages/tts/README.md.
+const TTS_MODE = process.env.EXPO_PUBLIC_TTS_MODE === "realistic" ? "realistic" : "robotic";
 
 export function ChatScreen() {
   const listRef = useRef<FlatList>(null);
+  const avatarRef = useRef<TalkingAvatarHandle>(null);
+  const lastSpokenMessageId = useRef<string | null>(null);
   const { agent, isReady } = useAgent({ agentId: "default" });
   const { copilotkit } = useCopilotKit();
   const renderToolCall = useRenderToolCall();
@@ -46,6 +63,32 @@ export function ChatScreen() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+
+  const { speak } = useTextToSpeech({
+    mode: TTS_MODE,
+    baseUrl: BACKEND_ORIGIN,
+    onStart: () => avatarRef.current?.talk(),
+    onDone: () => avatarRef.current?.idle(),
+    onFallback: (fallbackError) =>
+      console.warn("Realistic TTS failed, used robotic instead:", fallbackError.message),
+  });
+
+  // Business info scraped during org onboarding (see create-org-screen.tsx)
+  // overrides the bundled demo data once it exists.
+  useEffect(() => {
+    void loadOrg().then((org) => {
+      if (!org) return;
+      setReception((current) => ({
+        ...current,
+        business: {
+          name: org.name,
+          hours: org.hours,
+          services: org.services,
+          phone: org.phone,
+        },
+      }));
+    });
+  }, []);
 
   const send = useCallback(async () => {
     const text = draft.trim();
@@ -67,12 +110,28 @@ export function ChatScreen() {
         content: text,
       });
       await copilotkit.runAgent({ agent });
+
+      const latestAssistantMessage = [...agent.messages]
+        .reverse()
+        .find((message) => message.role === "assistant");
+      const replyText =
+        latestAssistantMessage && typeof latestAssistantMessage.content === "string"
+          ? latestAssistantMessage.content
+          : "";
+      if (
+        latestAssistantMessage &&
+        replyText &&
+        lastSpokenMessageId.current !== latestAssistantMessage.id
+      ) {
+        lastSpokenMessageId.current = latestAssistantMessage.id;
+        void speak(replyText);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(false);
     }
-  }, [agent, copilotkit, draft, busy, isReady]);
+  }, [agent, copilotkit, draft, busy, isReady, speak]);
 
   useEffect(() => {
     const subscription = copilotkit.subscribe({
@@ -99,12 +158,26 @@ export function ChatScreen() {
     (message) => message.role === "user" || message.role === "assistant",
   );
   const isSendDisabled = busy || !isReady;
+  const activeToolLabel = deriveActiveToolLabel(messages);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <Tools reception={reception} setReception={setReception} />
 
       <ConnectionStatus />
+
+      <TalkingAvatar
+        ref={avatarRef}
+        idleSource={defaultIdleSource}
+        talkingSource={defaultTalkingSource}
+        style={{ marginHorizontal: 16, marginBottom: 12, maxWidth: 220, alignSelf: "center" }}
+      />
+
+      {activeToolLabel ? (
+        <View style={{ marginHorizontal: 16, marginBottom: 8, alignSelf: "flex-start" }}>
+          <ToolCallStatusBanner label={activeToolLabel} />
+        </View>
+      ) : null}
 
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Resse.ai · Front desk</Text>
