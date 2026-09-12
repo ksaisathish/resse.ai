@@ -7,4 +7,6 @@ export type RootStackParamList = {
   FrontDesk: undefined;
   /** Full-screen avatar, hands-free, camera-driven. */
   Receptionist: undefined;
+  /** Business-owner control panel: overview, clients, appointments, settings. */
+  Admin: undefined;
 };

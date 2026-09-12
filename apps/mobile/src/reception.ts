@@ -25,6 +25,12 @@ export type Appointment = {
   service: string;
   time: string;
   status: AppointmentStatus;
+  /** RFC3339 start time, set by book_appointment (see tools.tsx) for
+   * anything booked through the agent. Optional because the bundled demo
+   * appointments only have a display `time` string — the admin calendar view
+   * groups those under "Today" when this is unset. */
+  startISO?: string;
+  durationMinutes?: number;
 };
 
 /** One day's hours, or "closed". Used for "are you open right now"-style

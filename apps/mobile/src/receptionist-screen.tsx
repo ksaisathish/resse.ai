@@ -10,7 +10,7 @@
  * status ("Listening…"/"Thinking…") — deliberately minimal, since the
  * avatar itself is the interface here.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useIsFocused } from "@react-navigation/native";
@@ -19,6 +19,7 @@ import { Tools } from "@/tools";
 import { styles } from "@/styles";
 import { useReceptionAgent } from "@/use-reception-agent";
 import { PresenceTrigger } from "@/presence-trigger";
+import { loadSettings } from "@/settings-store";
 import { ListeningIndicator } from "@/listening-indicator";
 
 // Screens keep registering CopilotKit tools/context (via <Tools>) even when
@@ -34,6 +35,13 @@ export function ReceptionistScreen() {
 
 function ReceptionistScreenContent() {
   const [personCount, setPersonCount] = useState(0);
+  // Defaults to shown; admin-settings.tsx lets a business owner turn the
+  // full-screen avatar video off in favor of a plain, faceless kiosk.
+  const [avatarEnabled, setAvatarEnabled] = useState(true);
+  useEffect(() => {
+    void loadSettings().then((settings) => setAvatarEnabled(settings.avatarEnabled));
+  }, []);
+
   const {
     reception,
     setReception,
@@ -72,12 +80,14 @@ function ReceptionistScreenContent() {
     <View style={styles.fullScreenRoot}>
       <Tools reception={reception} setReception={setReception} />
 
-      <TalkingAvatar
-        ref={avatarRef}
-        idleSource={defaultIdleSource}
-        talkingSource={defaultTalkingSource}
-        style={StyleSheet.absoluteFillObject}
-      />
+      {avatarEnabled ? (
+        <TalkingAvatar
+          ref={avatarRef}
+          idleSource={defaultIdleSource}
+          talkingSource={defaultTalkingSource}
+          style={StyleSheet.absoluteFillObject}
+        />
+      ) : null}
 
       <PresenceTrigger
         onPresent={handlePresenceDetected}

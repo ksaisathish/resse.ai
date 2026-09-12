@@ -11,27 +11,29 @@ import type { TalkingAvatarHandle } from "@resse/talking-avatar";
 import { useTextToSpeech } from "@resse/tts";
 import { useSpeechToText } from "@resse/stt";
 import { deriveActiveToolLabel } from "@resse/tool-status-banner";
-import { initialReception } from "@/reception";
+import { initialReception, type ReceptionSnapshot } from "@/reception";
 import { createUserMessageId } from "@/message-id";
 import { BACKEND_ORIGIN } from "@/config";
-import { loadOrg } from "@/org";
-
-// Flag: "robotic" (default, free, on-device) vs "realistic" (cloud voice via
-// /api/tts, small per-character cost). Set EXPO_PUBLIC_TTS_MODE=realistic in
-// apps/mobile/.env to flip it — see packages/tts/README.md.
-const TTS_MODE = process.env.EXPO_PUBLIC_TTS_MODE === "realistic" ? "realistic" : "robotic";
+import { loadReceptionSnapshot, saveReceptionSnapshot } from "@/reception-store";
+import { loadSettings, type TtsMode } from "@/settings-store";
 
 export function useReceptionAgent() {
   const avatarRef = useRef<TalkingAvatarHandle>(null);
   const lastSpokenMessageId = useRef<string | null>(null);
   const { agent, isReady } = useAgent({ agentId: "default" });
   const { copilotkit } = useCopilotKit();
-  const [reception, setReception] = useState(initialReception);
+  const [reception, setReception] = useState<ReceptionSnapshot>(initialReception);
+  const [ttsMode, setTtsMode] = useState<TtsMode>("robotic");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  // Distinguishes "haven't loaded the persisted snapshot yet" from "user
+  // cleared everything" — without it, the very first render's setReception
+  // effect below would immediately overwrite whatever loadReceptionSnapshot
+  // returns with the still-default `reception` state.
+  const hasLoadedReception = useRef(false);
 
   const { speak } = useTextToSpeech({
-    mode: TTS_MODE,
+    mode: ttsMode,
     baseUrl: BACKEND_ORIGIN,
     onStart: () => avatarRef.current?.talk(),
     onDone: () => avatarRef.current?.idle(),
@@ -39,28 +41,23 @@ export function useReceptionAgent() {
       console.warn("Realistic TTS failed, used robotic instead:", fallbackError.message),
   });
 
-  // Business info scraped during org onboarding (see create-org-screen.tsx)
-  // overrides the bundled demo data once it exists.
+  // Loads the persisted reception snapshot (business/clients/appointments,
+  // already layered with any saved org override — see reception-store.ts)
+  // and the user's voice preference (admin-settings.tsx) once on mount.
   useEffect(() => {
-    void loadOrg().then((org) => {
-      if (!org) return;
-      setReception((current) => ({
-        ...current,
-        business: {
-          name: org.name,
-          hours: org.hours,
-          services: org.services,
-          phone: org.phone,
-          email: org.email,
-          address: org.address,
-          website: org.website,
-          description: org.description,
-          upiId: org.upiId,
-          bookingDepositAmount: org.bookingDepositAmount,
-        },
-      }));
+    void loadReceptionSnapshot().then((snapshot) => {
+      hasLoadedReception.current = true;
+      setReception(snapshot);
     });
+    void loadSettings().then((settings) => setTtsMode(settings.ttsMode));
   }, []);
+
+  // Persists every change (a booking, a check-in, an admin edit) so it
+  // survives navigation and app restarts, and shows up in the admin screens.
+  useEffect(() => {
+    if (!hasLoadedReception.current) return;
+    void saveReceptionSnapshot(reception);
+  }, [reception]);
 
   const sendText = useCallback(
     async (rawText: string) => {

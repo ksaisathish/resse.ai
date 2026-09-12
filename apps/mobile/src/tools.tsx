@@ -154,6 +154,8 @@ function BookingApprovalCard({
               service,
               time: displayTime,
               status: "upcoming",
+              startISO: startValid ? startISO : undefined,
+              durationMinutes: startValid ? durationMinutes : undefined,
             };
 
             let calendarNote = "";

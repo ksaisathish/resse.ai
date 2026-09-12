@@ -17,6 +17,7 @@ import { SplashScreen } from "@/splash-screen";
 import { LoginScreen } from "@/login-screen";
 import { DashboardScreen } from "@/dashboard-screen";
 import { CreateOrgScreen } from "@/create-org-screen";
+import { AdminScreen } from "@/admin-screen";
 import { RUNTIME_URL } from "@/config";
 import type { RootStackParamList } from "@/navigation";
 
@@ -35,6 +36,7 @@ export default function App() {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Dashboard" component={DashboardScreen} />
             <Stack.Screen name="CreateOrg" component={CreateOrgScreen} options={{ headerShown: true, title: "Create organization" }} />
+            <Stack.Screen name="Admin" component={AdminScreen} />
             <Stack.Screen name="FrontDesk" component={ChatScreen} options={{ headerShown: true, title: "Chat" }} />
             {/* No header at all — full-screen immersion is the point. */}
             <Stack.Screen name="Receptionist" component={ReceptionistScreen} options={{ headerShown: false }} />

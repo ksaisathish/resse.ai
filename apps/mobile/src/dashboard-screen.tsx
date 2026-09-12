@@ -145,6 +145,13 @@ export function DashboardScreen({ navigation }: Props) {
             <Text style={styles.btnText}>Open chat instead</Text>
           </Pressable>
 
+          <Pressable
+            style={[styles.btn, styles.btnBlock, { marginTop: 12 }]}
+            onPress={() => navigation.navigate("Admin")}
+          >
+            <Text style={styles.btnText}>Manage business</Text>
+          </Pressable>
+
           <Pressable onPress={() => navigation.navigate("CreateOrg")}>
             <Text style={styles.btnLink}>Change organization</Text>
           </Pressable>
