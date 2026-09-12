@@ -15,6 +15,9 @@ export interface ScrapedBusiness {
   services: string[];
   phone: string;
   description: string;
+  email: string;
+  address: string;
+  website: string;
   sourceUrl: string;
 }
 
@@ -54,9 +57,12 @@ export async function scrapeBusinessSite(url: string): Promise<ScrapedBusiness |
           content:
             "Extract business info from the given webpage text, for a receptionist kiosk to use. " +
             "Return strict JSON with keys: name (string), hours (string, e.g. 'Mon-Fri 9am-5pm'), " +
-            "services (array of strings), phone (string, empty string if not found), description " +
-            "(one sentence on what the business does). If a field truly cannot be determined, use a " +
-            "short honest placeholder like 'Not listed on site' rather than inventing specifics.",
+            "services (array of strings), phone (string, empty string if not found), email (string, " +
+            "empty string if not found), address (string, empty string if not found), website " +
+            "(string, empty string if not found — the site's own canonical URL if stated, otherwise " +
+            "empty), description (one sentence on what the business does). If a field truly cannot " +
+            "be determined, use an empty string (or 'Not listed on site' for hours/description) " +
+            "rather than inventing specifics.",
         },
         { role: "user", content: page.text.slice(0, 6000) },
       ],
@@ -86,6 +92,9 @@ export async function scrapeBusinessSite(url: string): Promise<ScrapedBusiness |
       : [],
     phone: typeof parsed.phone === "string" ? parsed.phone : "",
     description: typeof parsed.description === "string" ? parsed.description : "",
+    email: typeof parsed.email === "string" ? parsed.email : "",
+    address: typeof parsed.address === "string" ? parsed.address : "",
+    website: typeof parsed.website === "string" ? parsed.website : "",
     sourceUrl: url,
   };
 }

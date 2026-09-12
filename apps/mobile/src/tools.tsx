@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Linking, Platform, Pressable, Text, View } from "react-native";
 import {
   useAgentContext,
   useFrontendTool,
@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 import {
   applyStatusChange,
+  findClientByName,
   validateStatusChange,
   type ReceptionSnapshot,
 } from "@/reception";
@@ -34,6 +35,7 @@ export function Tools({
       surface: "react-native",
       business: reception.business,
       appointments: reception.appointments,
+      clients: reception.clients,
     },
   });
 
@@ -114,7 +116,8 @@ export function Tools({
 
   useFrontendTool({
     name: "get_business_info",
-    description: "Read the business hours, services, and phone number shown in the app.",
+    description:
+      "Read the business's hours, services, phone, and (when set) email, address, website, and description.",
     parameters: z.object({}),
     handler: async () => ({ business: reception.business }),
     render: () => (
@@ -132,6 +135,24 @@ export function Tools({
           <Text style={styles.rowLabel}>Services</Text>
           <Text style={styles.rowValue}>{reception.business.services.join(", ")}</Text>
         </View>
+        {reception.business.email ? (
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Email</Text>
+            <Text style={styles.rowValue}>{reception.business.email}</Text>
+          </View>
+        ) : null}
+        {reception.business.address ? (
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Address</Text>
+            <Text style={styles.rowValue}>{reception.business.address}</Text>
+          </View>
+        ) : null}
+        {reception.business.website ? (
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Website</Text>
+            <Text style={styles.rowValue}>{reception.business.website}</Text>
+          </View>
+        ) : null}
       </View>
     ),
   });
@@ -155,6 +176,105 @@ export function Tools({
             <Text style={styles.rowValue}>{appointment.status}</Text>
           </View>
         ))}
+      </View>
+    ),
+  });
+
+  useFrontendTool({
+    name: "list_clients",
+    description:
+      "Read the local client directory (name, phone, email, notes). Use this before call_number or message_number if you only have a name, to find the phone number.",
+    parameters: z.object({}),
+    handler: async () => ({ clients: reception.clients }),
+    render: () => (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Clients</Text>
+        {reception.clients.map((client) => (
+          <View key={client.id} style={styles.row}>
+            <View style={styles.rowStack}>
+              <Text style={styles.rowLabel}>{client.name}</Text>
+              <Text style={styles.rowMeta}>{client.phone}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    ),
+  });
+
+  useFrontendTool({
+    name: "find_client",
+    description:
+      "Look up one client by name (exact or partial match) and return their phone/email/notes. Use this to resolve a name to a phone number before calling or messaging.",
+    parameters: z.object({
+      name: z.string().describe("The client's name, or part of it, as mentioned by the user."),
+    }),
+    handler: async ({ name }) => {
+      const client = findClientByName(reception, name);
+      if (!client) return { found: false, reason: `No client matched "${name}".` };
+      return { found: true, client };
+    },
+    render: ({ args, result }) => (
+      <View style={styles.gate}>
+        <Text style={styles.gateDone}>
+          {result
+            ? typeof result === "object" && result && "client" in result
+              ? `Found ${(result as { client?: { name?: string } }).client?.name}`
+              : `No client matched "${args.name}"`
+            : "Looking up client…"}
+        </Text>
+      </View>
+    ),
+  });
+
+  useFrontendTool({
+    name: "call_number",
+    description:
+      "Open the phone's native dialer pre-filled with a phone number, ready for the human operating the kiosk to tap Call. Does NOT place the call automatically — the phone's own call UI takes over from here, so the human always confirms before anything is actually dialed.",
+    parameters: z.object({
+      phoneNumber: z.string().describe("Phone number to dial, e.g. from find_client or get_business_info."),
+      label: z.string().optional().describe("Who/what this call is to, shown in the confirmation card."),
+    }),
+    handler: async ({ phoneNumber }) => {
+      const url = `tel:${phoneNumber}`;
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) return { opened: false, reason: "This device cannot open tel: links." };
+      await Linking.openURL(url);
+      return { opened: true, phoneNumber };
+    },
+    render: ({ args, result }) => (
+      <View style={styles.gate}>
+        <Text style={styles.gateDone}>
+          {result
+            ? `Opened dialer for ${args.label ?? args.phoneNumber}`
+            : `Opening dialer for ${args.label ?? args.phoneNumber}…`}
+        </Text>
+      </View>
+    ),
+  });
+
+  useFrontendTool({
+    name: "message_number",
+    description:
+      "Open the phone's native SMS composer pre-filled with a phone number and a draft message, ready for the human operating the kiosk to review and tap Send. Does NOT send automatically.",
+    parameters: z.object({
+      phoneNumber: z.string().describe("Phone number to message, e.g. from find_client."),
+      message: z.string().describe("Draft message body to pre-fill in the composer."),
+    }),
+    handler: async ({ phoneNumber, message }) => {
+      const separator = Platform.OS === "ios" ? "&" : "?";
+      const url = `sms:${phoneNumber}${separator}body=${encodeURIComponent(message)}`;
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) return { opened: false, reason: "This device cannot open sms: links." };
+      await Linking.openURL(url);
+      return { opened: true, phoneNumber };
+    },
+    render: ({ args, result }) => (
+      <View style={styles.gate}>
+        <Text style={styles.gateDone}>
+          {result
+            ? `Opened message composer for ${args.phoneNumber}`
+            : `Opening message composer for ${args.phoneNumber}…`}
+        </Text>
       </View>
     ),
   });

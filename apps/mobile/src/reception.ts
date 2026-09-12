@@ -5,23 +5,61 @@ export type AppointmentStatus =
   | "no-show"
   | "cancelled";
 
+export type Client = {
+  id: string;
+  name: string;
+  /** Phone number, used by the call_number/message_number tools. Keep it a
+   * real-looking number even in demo data — the tools dial/compose exactly
+   * what's stored here. */
+  phone: string;
+  email?: string;
+  notes?: string;
+};
+
 export type Appointment = {
   id: string;
+  clientId: string;
+  /** Denormalized for display convenience — kept in sync with the client's
+   * name at creation time. Look up the Client record for phone/email/notes. */
   customerName: string;
   service: string;
   time: string;
   status: AppointmentStatus;
 };
 
+/** One day's hours, or "closed". Used for "are you open right now"-style
+ * questions — the free-text `hours` field on BusinessInfo is what's shown to
+ * customers; this is what the agent can actually reason about precisely. */
+export type DayAvailability = { open: string; close: string } | "closed";
+
+export type Availability = {
+  mon: DayAvailability;
+  tue: DayAvailability;
+  wed: DayAvailability;
+  thu: DayAvailability;
+  fri: DayAvailability;
+  sat: DayAvailability;
+  sun: DayAvailability;
+};
+
 export type BusinessInfo = {
   name: string;
+  /** Human-readable summary shown in the UI, e.g. "Mon-Fri 8am-5pm". */
   hours: string;
+  /** Structured per-day hours, optional — org onboarding (Exa scrape) may not
+   * always produce this reliably; fall back to the `hours` string when unset. */
+  availability?: Availability;
   services: string[];
   phone: string;
+  email?: string;
+  address?: string;
+  website?: string;
+  description?: string;
 };
 
 export type ReceptionSnapshot = {
   business: BusinessInfo;
+  clients: Client[];
   appointments: Appointment[];
 };
 
@@ -38,42 +76,37 @@ export type StatusChangeResult =
   | { snapshot: ReceptionSnapshot; appointment: Appointment; error?: never }
   | { snapshot: ReceptionSnapshot; appointment?: undefined; error: string };
 
+const demoClients: Client[] = [
+  { id: "client-1", name: "Jordan Blake", phone: "+15550190021", email: "jordan.blake@example.com" },
+  { id: "client-2", name: "Priya Nair", phone: "+15550190022", email: "priya.nair@example.com" },
+  { id: "client-3", name: "Sam Ortiz", phone: "+15550190023" },
+  { id: "client-4", name: "Dana Whitfield", phone: "+15550190024", notes: "Prefers afternoon slots" },
+];
+
 export const initialReception: ReceptionSnapshot = {
   business: {
     name: "Riverside Family Dental",
     hours: "Mon–Fri 8:00 AM–5:00 PM",
+    availability: {
+      mon: { open: "08:00", close: "17:00" },
+      tue: { open: "08:00", close: "17:00" },
+      wed: { open: "08:00", close: "17:00" },
+      thu: { open: "08:00", close: "17:00" },
+      fri: { open: "08:00", close: "17:00" },
+      sat: "closed",
+      sun: "closed",
+    },
     services: ["Cleaning", "Checkup", "Whitening", "Emergency visit"],
-    phone: "(555) 019-2044",
+    phone: "+15550190020",
+    email: "frontdesk@riversidedental.example",
+    address: "142 Riverside Ave, Springfield",
   },
+  clients: demoClients,
   appointments: [
-    {
-      id: "appt-1",
-      customerName: "Jordan Blake",
-      service: "Cleaning",
-      time: "9:00 AM",
-      status: "completed",
-    },
-    {
-      id: "appt-2",
-      customerName: "Priya Nair",
-      service: "Checkup",
-      time: "10:30 AM",
-      status: "upcoming",
-    },
-    {
-      id: "appt-3",
-      customerName: "Sam Ortiz",
-      service: "Whitening",
-      time: "11:15 AM",
-      status: "no-show",
-    },
-    {
-      id: "appt-4",
-      customerName: "Dana Whitfield",
-      service: "Checkup",
-      time: "1:00 PM",
-      status: "upcoming",
-    },
+    { id: "appt-1", clientId: "client-1", customerName: "Jordan Blake", service: "Cleaning", time: "9:00 AM", status: "completed" },
+    { id: "appt-2", clientId: "client-2", customerName: "Priya Nair", service: "Checkup", time: "10:30 AM", status: "upcoming" },
+    { id: "appt-3", clientId: "client-3", customerName: "Sam Ortiz", service: "Whitening", time: "11:15 AM", status: "no-show" },
+    { id: "appt-4", clientId: "client-4", customerName: "Dana Whitfield", service: "Checkup", time: "1:00 PM", status: "upcoming" },
   ],
 };
 
@@ -160,4 +193,22 @@ export function applyStatusChange(
 
 export function upcomingAppointments(snapshot: ReceptionSnapshot) {
   return snapshot.appointments.filter((item) => item.status === "upcoming");
+}
+
+export function findClientByName(snapshot: ReceptionSnapshot, name: string): Client | undefined {
+  const needle = name.trim().toLowerCase();
+  if (!needle) return undefined;
+  return (
+    snapshot.clients.find((client) => client.name.toLowerCase() === needle) ??
+    snapshot.clients.find((client) => client.name.toLowerCase().includes(needle))
+  );
+}
+
+export function clientForAppointment(
+  snapshot: ReceptionSnapshot,
+  appointmentId: string,
+): Client | undefined {
+  const appointment = snapshot.appointments.find((item) => item.id === appointmentId);
+  if (!appointment) return undefined;
+  return snapshot.clients.find((client) => client.id === appointment.clientId);
 }

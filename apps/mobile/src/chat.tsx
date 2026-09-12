@@ -37,15 +37,22 @@ import {
   type TalkingAvatarHandle,
 } from "@resse/talking-avatar";
 import { useTextToSpeech } from "@resse/tts";
+import { useSpeechToText } from "@resse/stt";
 import { ToolCallStatusBanner, deriveActiveToolLabel } from "@resse/tool-status-banner";
 import { Tools } from "@/tools";
 import { ConnectionStatus } from "@/connection-status";
-import { styles } from "@/styles";
+import { C, styles } from "@/styles";
 import { initialReception, upcomingAppointments } from "@/reception";
 import { createUserMessageId } from "@/message-id";
 import { AssistantMarkdown } from "@/assistant-markdown";
 import { BACKEND_ORIGIN } from "@/config";
 import { loadOrg } from "@/org";
+import { ENABLE_FACE_PRESENCE, PresenceTrigger } from "@/presence-trigger";
+
+// How long a presence-triggered listen stays open before auto-sending —
+// there's no voice-activity-detection, so this is a fixed window, not a
+// silence detector. See presence-trigger.tsx.
+const PRESENCE_AUTO_STOP_MS = 6000;
 
 // Flag: "robotic" (default, free, on-device) vs "realistic" (cloud voice via
 // /api/tts, small per-character cost). Set EXPO_PUBLIC_TTS_MODE=realistic in
@@ -85,13 +92,17 @@ export function ChatScreen() {
           hours: org.hours,
           services: org.services,
           phone: org.phone,
+          email: org.email,
+          address: org.address,
+          website: org.website,
+          description: org.description,
         },
       }));
     });
   }, []);
 
-  const send = useCallback(async () => {
-    const text = draft.trim();
+  const sendText = useCallback(async (rawText: string) => {
+    const text = rawText.trim();
     if (!text || busy) return;
     if (!isReady) {
       setError(
@@ -131,7 +142,25 @@ export function ChatScreen() {
     } finally {
       setBusy(false);
     }
-  }, [agent, copilotkit, draft, busy, isReady, speak]);
+  }, [agent, copilotkit, busy, isReady, speak]);
+
+  const send = useCallback(() => sendText(draft), [sendText, draft]);
+
+  const { isRecording, isTranscribing, startListening, stopListening } = useSpeechToText({
+    baseUrl: BACKEND_ORIGIN,
+    onError: (sttError) => setError(sttError.message),
+  });
+
+  const stopListeningAndSend = useCallback(async () => {
+    const transcript = await stopListening();
+    if (transcript) void sendText(transcript);
+  }, [stopListening, sendText]);
+
+  const handlePresenceDetected = useCallback(() => {
+    if (busy || isRecording || isTranscribing) return;
+    void startListening();
+    setTimeout(() => void stopListeningAndSend(), PRESENCE_AUTO_STOP_MS);
+  }, [busy, isRecording, isTranscribing, startListening, stopListeningAndSend]);
 
   useEffect(() => {
     const subscription = copilotkit.subscribe({
@@ -165,6 +194,8 @@ export function ChatScreen() {
       <Tools reception={reception} setReception={setReception} />
 
       <ConnectionStatus />
+
+      {ENABLE_FACE_PRESENCE ? <PresenceTrigger onPresent={handlePresenceDetected} /> : null}
 
       <TalkingAvatar
         ref={avatarRef}
@@ -277,12 +308,26 @@ export function ChatScreen() {
             style={styles.input}
             value={draft}
             onChangeText={setDraft}
-            placeholder="Ask about your money"
+            placeholder={isRecording ? "Listening…" : isTranscribing ? "Transcribing…" : "Ask about your money"}
             placeholderTextColor="#6e6779"
             onSubmitEditing={() => void send()}
             returnKeyType="send"
-            editable={!busy}
+            editable={!busy && !isRecording && !isTranscribing}
           />
+          <Pressable
+            style={[styles.btn, isRecording ? styles.btnPrimary : null]}
+            onPressIn={() => void startListening()}
+            onPressOut={() => void stopListeningAndSend()}
+            disabled={busy || isTranscribing || !isReady}
+          >
+            {isTranscribing ? (
+              <ActivityIndicator color={C.text} size="small" />
+            ) : (
+              <Text style={isRecording ? styles.btnPrimaryText : styles.btnText}>
+                {isRecording ? "●" : "🎤"}
+              </Text>
+            )}
+          </Pressable>
           <Pressable
             style={[styles.btn, styles.btnPrimary]}
             onPress={() => void send()}

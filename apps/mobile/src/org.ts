@@ -4,7 +4,6 @@ import type { BusinessInfo } from "@/reception";
 const ORG_KEY = "resse.org";
 
 export type OrgBusiness = BusinessInfo & {
-  description?: string;
   sourceUrl?: string;
 };
 
