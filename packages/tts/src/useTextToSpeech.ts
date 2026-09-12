@@ -19,6 +19,10 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}): UseTextTo
   const [isSpeaking, setIsSpeaking] = useState(false);
   const modeRef = useRef(mode);
   modeRef.current = mode;
+  // Set while realistic playback is in flight. Speech.stop() only knows
+  // about expo-speech, so without this handle a stop() in realistic mode
+  // would flip isSpeaking to false while the cloud audio kept playing.
+  const cancelRealistic = useRef<(() => void) | null>(null);
 
   const speak = useCallback(
     async (text: string) => {
@@ -44,7 +48,13 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}): UseTextTo
       }
 
       try {
-        await speakRealistic(text, config, { onStart, onDone });
+        await speakRealistic(text, config, {
+          onStart,
+          onDone,
+          onController: (controller) => {
+            cancelRealistic.current = controller.cancel;
+          },
+        });
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         onFallback?.(err);
@@ -61,6 +71,7 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}): UseTextTo
           });
         });
       } finally {
+        cancelRealistic.current = null;
         setIsSpeaking(false);
       }
     },
@@ -69,6 +80,8 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}): UseTextTo
 
   const stop = useCallback(() => {
     Speech.stop();
+    cancelRealistic.current?.();
+    cancelRealistic.current = null;
     setIsSpeaking(false);
   }, []);
 
