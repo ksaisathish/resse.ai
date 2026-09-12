@@ -75,6 +75,8 @@ export const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   presenceBadgeText: { color: C.text, fontSize: 13, fontWeight: "600" },
+  listeningBadgeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  listeningDot: { width: 8, height: 8, borderRadius: 4 },
 presencePreview: {
     position: "absolute",
     bottom: 24,

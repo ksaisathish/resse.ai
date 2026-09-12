@@ -19,6 +19,7 @@ import { Tools } from "@/tools";
 import { styles } from "@/styles";
 import { useReceptionAgent } from "@/use-reception-agent";
 import { PresenceTrigger } from "@/presence-trigger";
+import { ListeningIndicator } from "@/listening-indicator";
 
 // Screens keep registering CopilotKit tools/context (via <Tools>) even when
 // pushed underneath another screen in the stack, since native-stack doesn't
@@ -65,7 +66,7 @@ function ReceptionistScreenContent() {
     [setError],
   );
 
-  const statusLabel = isRecording ? "Listening…" : isTranscribing || busy ? "Thinking…" : null;
+  const listeningStatus = isRecording ? "listening" : isTranscribing || busy ? "thinking" : "idle";
 
   return (
     <View style={styles.fullScreenRoot}>
@@ -89,11 +90,9 @@ function ReceptionistScreenContent() {
           <View style={styles.presenceBadge}>
             <Text style={styles.presenceBadgeText}>🧑 {personCount}</Text>
           </View>
-          {statusLabel ? (
-            <View style={[styles.presenceBadge, { marginTop: 8 }]}>
-              <Text style={styles.presenceBadgeText}>{statusLabel}</Text>
-            </View>
-          ) : null}
+          <View style={{ marginTop: 8 }}>
+            <ListeningIndicator status={listeningStatus} />
+          </View>
         </View>
 
         <View style={{ flex: 1 }} pointerEvents="none" />

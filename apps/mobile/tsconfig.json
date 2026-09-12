@@ -7,7 +7,8 @@
     "moduleResolution": "bundler",
     "paths": {
       "@/*": ["./src/*"],
-      "expo-camera": ["./node_modules/expo-camera"]
+      "expo-camera": ["./node_modules/expo-camera"],
+      "react-native-webview": ["./node_modules/react-native-webview"]
     }
   },
   "include": ["index.js", "App.tsx", "src", "test", "*.d.ts"]

@@ -27,6 +27,7 @@ import { useRenderToolCall, type ToolCall } from "@copilotkit/react-native/headl
 import { ToolCallStatusBanner } from "@resse/tool-status-banner";
 import { Tools } from "@/tools";
 import { ConnectionStatus } from "@/connection-status";
+import { ListeningIndicator } from "@/listening-indicator";
 import { C, styles } from "@/styles";
 import { upcomingAppointments } from "@/reception";
 import { AssistantMarkdown } from "@/assistant-markdown";
@@ -76,6 +77,12 @@ function ChatScreenContent() {
       <Tools reception={reception} setReception={setReception} />
 
       <ConnectionStatus />
+
+      <View style={{ marginTop: 8 }}>
+        <ListeningIndicator
+          status={isRecording ? "listening" : isTranscribing ? "thinking" : "idle"}
+        />
+      </View>
 
       {activeToolLabel ? (
         <View style={{ marginHorizontal: 16, marginBottom: 8, alignSelf: "flex-start" }}>
