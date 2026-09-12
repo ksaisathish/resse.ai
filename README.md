@@ -149,7 +149,7 @@ cd apps/mobile && npm test && npm run typecheck
 
 ![Balaji and Saisathish at a desk with two laptops open, building Resse.ai during the hackathon](docs/images/team-building.jpeg)
 
-Balaji Anbalagan and Saisathish Karthikeyan, over two days at AI Tinkerers' *Agents, Everywhere* hackathon.
+Balaji Anbalagan and Saisathish Karthikeyan, over four hours at AI Tinkerers' *Agents, Everywhere* hackathon.
 
 The project page in [docs/](docs/) is served by GitHub Pages — enable it under **Settings → Pages → Source: `main` / `/docs`**.
 
