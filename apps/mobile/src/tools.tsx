@@ -214,11 +214,34 @@ export function Tools({
   reception: ReceptionSnapshot;
   setReception: Dispatch<SetStateAction<ReceptionSnapshot>>;
 }) {
+  // The agent has no clock of its own: the model's idea of "today" comes
+  // from its training data, so without this it cannot resolve "tomorrow" or
+  // "next Tuesday" into a real date, and silently guesses a year-old one.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), CLOCK_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, []);
+
   useAgentContext({
     description:
-      "The visible React Native front-desk app state. This sample data is local to the phone/kiosk template. Use reception tools for reads; use check_in_appointment for any status change, which requires the user's approval tap before local state changes.",
+      "The visible React Native front-desk app state, plus the kiosk's current date/time. This sample data is local to the phone/kiosk template. Use reception tools for reads; use check_in_appointment for any status change, which requires the user's approval tap before local state changes. Resolve every relative date the customer mentions ('tomorrow', 'next Tuesday') against `today`, never against your own assumptions.",
     value: {
       surface: "react-native",
+      today: {
+        iso: now.toISOString(),
+        spoken: now.toLocaleString(undefined, {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        // The UTC offset the agent must put in any startISO it builds.
+        utcOffsetMinutes: -now.getTimezoneOffset(),
+      },
       business: reception.business,
       appointments: reception.appointments,
       clients: reception.clients,
