@@ -71,9 +71,11 @@ export function useMediaPipePresenceChecker(): UseMediaPipePresenceCheckerResult
 
   const checkPresence: PresenceChecker = useCallback(
     async (photoUri: string) => {
-      if (!isReady) {
-        throw new Error("MediaPipe face detector is still loading — try again shortly.");
-      }
+      // Still booting the WASM runtime. "Nobody detected yet" is the honest
+      // answer to a presence probe here, and it's what the caller would do
+      // with the information anyway — throwing instead just paints an error
+      // banner over the kiosk for the first few seconds of every launch.
+      if (!isReady) return { count: 0, present: false };
       if (pendingRef.current) {
         throw new Error("A MediaPipe presence check is already in flight.");
       }
